@@ -26,7 +26,7 @@ def detect_dice_tray(img):
 
     return largest_contour,contours[i_d1],contours[i_d2],img_contours
 
-def detect_board(img,board_ref):
+def detect_board(img,board_ref,distance=0.25):
     gray = cv.cvtColor(img,cv.COLOR_BGR2GRAY)
     board_gray = cv.cvtColor(board_ref,cv.COLOR_BGR2GRAY)
 
@@ -40,7 +40,7 @@ def detect_board(img,board_ref):
 
     good_matches = sorted(matches, key=lambda x: x.distance)
     _max =  max(matches, key=lambda x: x.distance).distance
-    good_matches = [m for m in matches if m.distance < 0.25 * _max]
+    good_matches = [m for m in matches if m.distance < distance * _max]
 
     src_pts = np.float32([kp2[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
     dst_pts = np.float32([kp[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
@@ -57,7 +57,7 @@ def detect_board(img,board_ref):
     _,edges2 = cv.threshold(warped_board,50,255,cv.THRESH_BINARY)
     edges2 = cv.morphologyEx(edges2,cv.MORPH_CLOSE,kernel=np.ones((7,7)))
 
-    contours,hierarchy = cv.findContours(edges2, cv.RETR_TREE, 2)
-    i,largest_contour = max(enumerate(contours), key=lambda i_c:cv.contourArea(i_c[1]))
+    contours,_ = cv.findContours(edges2, cv.RETR_TREE, 2)
+    #i,largest_contour = max(enumerate(contours), key=lambda i_c:cv.contourArea(i_c[1]))
 
-    return M,drawn_matches,largest_contour
+    return M,drawn_matches,contours[0]
