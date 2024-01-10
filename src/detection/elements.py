@@ -26,7 +26,7 @@ def detect_dice_tray(img):
 
     return largest_contour,contours[i_d1],contours[i_d2],img_contours
 
-def detect_board(img,board_ref,distance=0.25):
+def descriptor_detect(img,board_ref,distance=0.25):
     gray = cv.cvtColor(img,cv.COLOR_BGR2GRAY)
     board_gray = cv.cvtColor(board_ref,cv.COLOR_BGR2GRAY)
 
