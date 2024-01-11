@@ -10,13 +10,26 @@ class Buildings(StaticObject):
         self.buildings_contours = buildings_contours
         self.orange = orange
         self.blue = blue
-        self.start_score = calculate_current_buildings(frame, self.buildings_contours, self.orange, self.blue)
+        self.orange_buildings,self.blue_buildings,orange_score,blue_score = calculate_current_buildings(frame, self.buildings_contours, self.orange, self.blue)
+        self.current_score = (orange_score,blue_score)
 
-    def detect_events(self, frame_num: int, frame: np.ndarray) -> str | None:
-        orange_score, blue_score = calculate_current_buildings(frame, self.buildings_contours, self.orange, self.blue)
-        if (orange_score, blue_score) != self.start_score:
-            self.events.append((frame_num, f"Orange: {orange_score} Blue: {blue_score}"))
-            return f"Orange: {orange_score} Blue: {blue_score}"
+    def redetect(self, frame):
+        return None
 
-    def draw_bbox(self, frame, msg=None, color=(0, 255, 0)):
-        return cv.drawContours(frame, self.buildings_contours, -1, (255, 0, 0), 3)
+    def detect_events(self, frame_num: int, frame: np.ndarray) -> str:
+        _,_,orange_score,blue_score = calculate_current_buildings(frame, self.buildings_contours, self.orange, self.blue)
+        
+        cur_orange_score,cur_blue_score = self.current_score
+        if (orange_score, blue_score) != self.current_score:
+            event_str = f"Building Constructed Orange: {orange_score-cur_orange_score} Blue: {blue_score-cur_blue_score}"
+            self.events.append((frame_num, event_str))
+            self.current_score = (orange_score,blue_score)
+            return event_str
+
+    def draw_bbox(self, frame, msg=None, color=(0, 122, 0)):
+        orange_buildings = [self.buildings_contours[i] for i in range(len(self.buildings_contours)) if self.orange_buildings[i]]
+        blue_buildings = [self.buildings_contours[i] for i in range(len(self.buildings_contours)) if self.blue_buildings[i]]
+        frame = cv.drawContours(frame, self.buildings_contours, -1, color, 3)
+        frame = cv.drawContours(frame, orange_buildings, -1, StaticObject.ORANGE_COLOR, 3)
+        frame = cv.drawContours(frame, blue_buildings,-1,StaticObject.BLUE_COLOR, 3)
+        return frame
