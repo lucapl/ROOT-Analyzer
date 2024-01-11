@@ -3,11 +3,11 @@ class Event():
 
     def __init__(self,limit=48):
         self.timer = 0
-        self.msg = None
+        self.msg = ""
         self.limit = 48
 
     def over_limit(self):
-        return self.timer < self.limit
+        return self.timer > self.limit
     
     def update(self):
         if not self.over_limit():
@@ -18,6 +18,6 @@ class Event():
 
     def get(self):
         if self.over_limit():
-            return None
+            return ""
         else:
-            self.msg
+            return self.msg

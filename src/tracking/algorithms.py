@@ -35,7 +35,7 @@ def track_video(video, out_path, tracked: list[TrackedObject], statics: list[Sta
         ret, frame = video.read()
         raw_frame = np.copy(frame)
 
-        if i == 0:
+        if i % (10 *fps) == 0 :
             for static in statics:
                 static.redetect(raw_frame)
             for tracked_obj in tracked:
@@ -48,6 +48,8 @@ def track_video(video, out_path, tracked: list[TrackedObject], statics: list[Sta
         for idx, obj in enumerate(statics):
             frame = obj.draw_bbox(frame)
             event = obj.detect_events(i, raw_frame)
+            if type(event) is Event:
+                event = event.get()
             if event is not None:
                 frame = cv.putText(frame, event, (0, 50 + idx * 25), cv.FONT_HERSHEY_SIMPLEX,
                                    1, (0, 0, 255), 2, cv.LINE_AA)
@@ -59,7 +61,7 @@ def track_video(video, out_path, tracked: list[TrackedObject], statics: list[Sta
                 continue
             frame = obj.draw_bbox(frame)
             event = obj.detect_events(i)
-            if event is Event: 
+            if type(event) is Event:
                 event = event.get()
             if event is not None:
                 frame = cv.putText(frame, event, (0, 35), cv.FONT_HERSHEY_SIMPLEX,

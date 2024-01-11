@@ -15,7 +15,6 @@ class StaticObject(ABC):
         self.name = name
         self.contour = contour
         self.last_bbox = cv.boundingRect(contour)
-        print(self.last_bbox)
         self.events = []
         self.event = Event(event_timer_limit)
 
