@@ -26,16 +26,16 @@ def rotate_image(img: np.ndarray, angle: float) -> np.ndarray:
     return result
 
 
-def create_tracker(tracker_type):
+def create_tracker(tracker_type) -> cv.Tracker:
     trackers = {
-        "BOOSTING": cv.TrackerBoosting_create(),
-        "MIL": cv.TrackerMIL_create(),
-        "KCF": cv.TrackerKCF_create(),
-        "TLD": cv.TrackerTLD_create(),
-        "MEDIANFLOW": cv.TrackerMedianFlow_create(),
-        "GOTURN": cv.TrackerGOTURN_create(),
-        "MOSSE": cv.TrackerMOSSE_create(),
-        "CSRT": cv.TrackerCSRT_create(),
+        "BOOSTING": cv.legacy.TrackerBoosting_create(),
+        "MIL": cv.legacy.TrackerMIL_create(),
+        "KCF": cv.legacy.TrackerKCF_create(),
+        "TLD": cv.legacy.TrackerTLD_create(),
+        "MEDIANFLOW": cv.legacy.TrackerMedianFlow_create(),
+        # "GOTURN": cv.legacy.TrackerGOTURN_create(),
+        "MOSSE": cv.legacy.TrackerMOSSE_create(),
+        "CSRT": cv.legacy.TrackerCSRT_create(),
     }
 
     if tracker_type == "BOOSTING":
@@ -56,7 +56,6 @@ def create_tracker(tracker_type):
         return cv.TrackerCSRT_create()
 
 
-    
 def dominant_colors(image: np.ndarray, n_clusters=3):
     data = cv.resize(image, (100, 100)).reshape(-1, 3)
     criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 10, 1.0)
