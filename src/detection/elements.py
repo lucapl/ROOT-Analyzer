@@ -3,6 +3,8 @@ import numpy as np
 
 from src.utils import crop_contour
 
+from typing import Dict
+
 
 def detect_dice_tray(img: np.ndarray, thresh=50) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """ this function uses the fact that the dice tray is all black """
@@ -45,6 +47,9 @@ def descriptor_detect(img: np.ndarray, board_ref: np.ndarray, distance=0.25):
     good_matches = sorted(matches, key=lambda x: x.distance)
     _max = max(matches, key=lambda x: x.distance).distance
     good_matches = [m for m in matches if m.distance < distance * _max]
+
+    if len(good_matches)==0:
+        return None
 
     src_pts = np.float32([kp2[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
     dst_pts = np.float32([kp[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
@@ -110,5 +115,25 @@ def detect_score_board(img,
 
 def detect_buildings(mask):
     contours, hierarchy = cv.findContours(mask, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-    buildings = [cont for cont_idx, cont in enumerate(contours) if hierarchy[0][cont_idx][2] == -1]
+    buildings = [cont for cont_idx, cont in enumerate(contours) if hierarchy[0][cont_idx][2] == -1] #childless contours
     return buildings
+
+def detect_clearing(mask):
+    contours, hierarchy = cv.findContours(mask, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+    clearings = [cont for cont_idx,cont in enumerate(contours) if hierarchy[0][cont_idx][3] == -1] #parentless contours
+    return clearings
+
+def detect_pawns(frame,clearing_mask,pawn_colors:Dict[str,tuple]):
+    clearings = detect_clearing(clearing_mask)
+    pawns = {}
+    hsv_frame = cv.cvtColor(cv.COLOR_BGR2HSV)
+    for cont in clearings:
+        img = crop_contour(frame,cont)
+        for player,color_range in pawn_colors.items():
+            color_mask = cv.inRange(hsv_frame,*color_range)
+            contours,hierarchy = cv.findContours(color_mask, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+            pawns[player] = len(contours)
+
+    return pawns
+
+
