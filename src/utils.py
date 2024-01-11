@@ -67,8 +67,9 @@ def dominant_colors(image: np.ndarray, n_clusters=3):
     return centers, cluster_sizes
 
 
-def warp_contours(contours, M):
-    return [cv.perspectiveTransform(cont.astype(np.float64), M).astype(np.int32) for cont in contours]
+def warp_contour(contour, M):
+    return cv.perspectiveTransform(contour.astype(np.float64), M).astype(np.int32)
+
 
 def calculate_color_percentage(img, lower_color, upper_color):
     # Convert the image to the HSV color space (Hue, Saturation, Value)
@@ -83,3 +84,10 @@ def calculate_color_percentage(img, lower_color, upper_color):
     percentage = (colored_pixels / total_pixels) * 100
 
     return percentage
+
+
+def resize_contour(contour, factor=0.25):
+    resized_contour = np.copy(contour)
+    resized_contour[:, :, 0] = contour[:, :, 0] * factor
+    resized_contour[:, :, 1] = contour[:, :, 1] * factor
+    return resized_contour

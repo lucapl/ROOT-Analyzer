@@ -27,7 +27,6 @@ def detect_dice_tray(img: np.ndarray, thresh=50) -> tuple[np.ndarray, np.ndarray
     cv.drawContours(img_contours, contours, -1, (0, 255, 0), 2)
     cv.drawContours(img_contours, [largest_contour], -1, (0, 0, 255), 2)
 
-    
     tray_children = []
     _, _, child, _ = hierarchy[0][i]
     j = child
@@ -39,13 +38,13 @@ def detect_dice_tray(img: np.ndarray, thresh=50) -> tuple[np.ndarray, np.ndarray
         if _next == -1:
             break
 
-    children_mapped = map(lambda i: cv.boundingRect(contours[i]),tray_children)
-    children_sorted = sorted(zip(tray_children,children_mapped),key=lambda bound:-bound[1][2]*bound[1][3])
+    children_mapped = map(lambda i: cv.boundingRect(contours[i]), tray_children)
+    children_sorted = sorted(zip(tray_children, children_mapped), key=lambda bound: -bound[1][2] * bound[1][3])
 
     return largest_contour, contours[children_sorted[0][0]], contours[children_sorted[1][0]], img_contours
 
 
-def descriptor_detect(img: np.ndarray, board_ref: np.ndarray, distance=0.25,draw_matches=True):
+def descriptor_detect(img: np.ndarray, board_ref: np.ndarray, distance=0.25, draw_matches=True):
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
     board_gray = cv.cvtColor(board_ref, cv.COLOR_BGR2GRAY)
 
@@ -61,7 +60,7 @@ def descriptor_detect(img: np.ndarray, board_ref: np.ndarray, distance=0.25,draw
     _max = max(matches, key=lambda x: x.distance).distance
     good_matches = [m for m in matches if m.distance < distance * _max]
 
-    if len(good_matches)==0:
+    if len(good_matches) == 0:
         return None
 
     src_pts = np.float32([kp2[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
@@ -88,7 +87,7 @@ def descriptor_detect(img: np.ndarray, board_ref: np.ndarray, distance=0.25,draw
     if draw_matches:
         return M, drawn_matches, contours[0]
     else:
-        return M,contours[0]
+        return M, contours[0]
 
 
 def detect_score_board(img,
@@ -127,17 +126,20 @@ def detect_score_board(img,
         if _next == -1:
             break
 
-    return cells, [contours[i] for i in cells[::-1]], mask_cont
+    return [contours[i] for i in cells[::-1]], mask_cont
 
 
 def detect_buildings(mask):
     contours, hierarchy = cv.findContours(mask, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-    buildings = [cont for cont_idx, cont in enumerate(contours) if hierarchy[0][cont_idx][2] == -1] #childless contours
+    buildings = [cont for cont_idx, cont in enumerate(contours) if
+                 hierarchy[0][cont_idx][2] == -1]  # childless contours
     return buildings
+
 
 def detect_clearing(mask):
     contours, hierarchy = cv.findContours(mask, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-    clearings = [cont for cont_idx,cont in enumerate(contours) if hierarchy[0][cont_idx][3] == -1] #parentless contours
+    clearings = [cont for cont_idx, cont in enumerate(contours) if
+                 hierarchy[0][cont_idx][3] == -1]  # parentless contours
     return clearings
 
 def _safe_div(a,b):
@@ -180,5 +182,3 @@ def detect_pawns(frame,clearing_mask,pawn_colors:Dict[str,tuple],diff_sensivity=
             pawns[player].append((k,j))
 
     return pawns
-
-

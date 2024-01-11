@@ -20,8 +20,9 @@ def scaled_imshow(img, fx=0.3, fy=0.3):
     scaled_img = cv.resize(img, None, fx=fx, fy=fy)
     imshow(scaled_img)
 
+
 def draw_bbox(frame, bbox, color=(255, 255, 255)):
-    x,y,w,h = bbox
+    x, y, w, h = bbox
     p1 = (int(x), int(y))
     p2 = (int(x + w), int(y + h))
     cv.rectangle(frame, p1, p2, color, 2, 1)

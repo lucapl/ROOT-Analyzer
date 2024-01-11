@@ -7,9 +7,11 @@ import subprocess
 from src.Event import Event
 from src.tracking.TrackedObject import TrackedObject
 from src.tracking.StaticObject import StaticObject
+from src.tracking.Board import Board
 
 
-def track_video(video, out_path, tracked: list[TrackedObject], statics: list[StaticObject], start=0, sec=None):
+def track_video(video, out_path, board: Board, tracked: list[TrackedObject], statics: list[StaticObject],
+                start=0, sec=None):
     width = int(video.get(cv.CAP_PROP_FRAME_WIDTH))
     height = int(video.get(cv.CAP_PROP_FRAME_HEIGHT))
     fps = video.get(cv.CAP_PROP_FPS)
@@ -35,15 +37,19 @@ def track_video(video, out_path, tracked: list[TrackedObject], statics: list[Sta
         ret, frame = video.read()
         raw_frame = np.copy(frame)
 
-        if i % (10 *fps) == 0 :
+
+        if i % 120 == 0:
+            board.redetect(raw_frame, board.M)
             for static in statics:
-                static.redetect(raw_frame)
-            for tracked_obj in tracked:
-                tracked_obj.redetect(raw_frame)
-            
+                static.redetect(raw_frame, board.M)
+
+        # if i % 30 == 0:
+        #     for tracked_obj in tracked:
+        #         tracked_obj.redetect(raw_frame)
 
         if not ret:
             break
+
 
         for idx, obj in enumerate(statics):
             frame = obj.draw_bbox(frame)
@@ -67,21 +73,10 @@ def track_video(video, out_path, tracked: list[TrackedObject], statics: list[Sta
                 frame = cv.putText(frame, event, (0, 35), cv.FONT_HERSHEY_SIMPLEX,
                                    1, (0, 0, 255), 2, cv.LINE_AA)
 
-        # for cont in static:
-        #     draw_bbox(frame, cv.boundingRect(cont), (255, 0, 0))
+        for obj in statics:
+            frame = obj.draw(frame)
+            frame = obj.detect_events(i, frame)
 
-        # for tracker in trackers:
-        #     ok, bbox = tracker.update(raw_frame)
-        #     if ok:
-        #         draw_bbox(frame, bbox, (0, 255, 0))
-        #     else:
-        #         frame = cv.putText(frame, 'FAILED', (0,0), cv.FONT_HERSHEY_SIMPLEX,
-        #         1, (0,0,255), 2, cv.LINE_AA)
-
-        # hsv = cv.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        # dst = cv.calcBackProject([hsv], [0], roi_hist, [0, 180], 1)
-        # ret, track_window = cv.CamShift(dst, track_window, term_crit)
-        # pts = np.int0(cv.boxPoints(ret))
         track.write(frame)
 
     track.release()
