@@ -1,15 +1,17 @@
 import cv2 as cv
 import numpy as np
 
+from src.utils import crop_contour
 
-def detect_dice_tray(img: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+
+def detect_dice_tray(img: np.ndarray, thresh=50) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """ this function uses the fact that the dice tray is all black """
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
     filtered = cv.bilateralFilter(gray, 9, 250, 250)
 
     # define thesholds
     # edges = cv.Canny(filtered, 50, 60)
-    _, edges = cv.threshold(filtered, 50, 255, cv.THRESH_BINARY)
+    _, edges = cv.threshold(filtered, thresh, 255, cv.THRESH_BINARY)
     edges = 255 - edges
     # edges = cv.morphologyEx(edges, cv.MORPH_DILATE, np.ones((2,2)))
 
@@ -54,7 +56,7 @@ def descriptor_detect(img: np.ndarray, board_ref: np.ndarray, distance=0.25):
                        flags=2 | 4
                        )
 
-    drawn_matches = cv.drawMatches(board_ref, kp2, img, kp, good_matches, None,  **draw_params)
+    drawn_matches = cv.drawMatches(board_ref, kp2, img, kp, good_matches, None, **draw_params)
 
     warped_board = cv.warpPerspective(board_gray, M, (img.shape[1], img.shape[0]))
 
@@ -65,3 +67,42 @@ def descriptor_detect(img: np.ndarray, board_ref: np.ndarray, distance=0.25):
     # i,largest_contour = max(enumerate(contours), key=lambda i_c:cv.contourArea(i_c[1]))
 
     return M, drawn_matches, contours[0]
+
+
+def detect_score_board(img,
+                       mask,
+                       thresh_arg=(55, 15),
+                       hor_ker=np.ones((1, 40)),
+                       ver_ker=np.ones((30, 1)),
+                       hor_ver_ker=np.ones((7, 7))):
+    mask_cont = cv.findContours(mask, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)[0][0]
+    cropped = crop_contour(img, mask_cont)
+    img_gray = cv.cvtColor(cropped, cv.COLOR_BGR2GRAY)
+
+    threshold = cv.adaptiveThreshold(
+        img_gray,
+        255,
+        cv.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv.THRESH_BINARY,
+        *thresh_arg
+    )
+
+    hor = 255 - cv.erode(cv.dilate(threshold, hor_ker), hor_ker)
+    ver = 255 - cv.erode(cv.dilate(threshold, ver_ker), ver_ker)
+    hor_ver = cv.morphologyEx(hor + ver, cv.MORPH_CLOSE, hor_ver_ker)
+
+    contours, hierarchy = cv.findContours(hor_ver, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+    i, _ = max(enumerate(contours), key=lambda i_c: cv.contourArea(i_c[1]))
+
+    cells = []
+    _, _, child, _ = hierarchy[0][i]
+    j = child
+
+    while True:
+        _next, _, _, _ = hierarchy[0][j]
+        cells.append(j)
+        j = _next
+        if _next == -1:
+            break
+
+    return cells, [contours[i] for i in cells[::-1]], mask_cont
