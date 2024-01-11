@@ -25,10 +25,6 @@ def track_video(video, out_path, tracked: list[TrackedObject], statics: list[Sta
     video.set(cv.CAP_PROP_POS_FRAMES, start)
 
     for i in tqdm(range(int(sec * fps))):
-        if i == 0:
-            for static in statics:
-                static.redetect(frame)
-
         if not video.isOpened():
             break
         if i > sec * fps:
@@ -36,6 +32,13 @@ def track_video(video, out_path, tracked: list[TrackedObject], statics: list[Sta
 
         ret, frame = video.read()
         raw_frame = np.copy(frame)
+
+        if i == 0:
+            for static in statics:
+                static.redetect(raw_frame)
+            for tracked_obj in tracked:
+                tracked_obj.redetect(raw_frame)
+            
 
         if not ret:
             break

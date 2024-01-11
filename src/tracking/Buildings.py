@@ -17,13 +17,14 @@ class Buildings(StaticObject):
         return None
 
     def detect_events(self, frame_num: int, frame: np.ndarray) -> str:
-        _,_,orange_score,blue_score = calculate_current_buildings(frame, self.buildings_contours, self.orange, self.blue)
+        ob,bb,orange_score,blue_score = calculate_current_buildings(frame, self.buildings_contours, self.orange, self.blue)
         
         cur_orange_score,cur_blue_score = self.current_score
         if (orange_score, blue_score) != self.current_score:
             event_str = f"Building Constructed Orange: {orange_score-cur_orange_score} Blue: {blue_score-cur_blue_score}"
             self.events.append((frame_num, event_str))
             self.current_score = (orange_score,blue_score)
+            self.orange_buildings,self.blue_buildings=ob,bb
             return event_str
 
     def draw_bbox(self, frame, msg=None, color=(0, 122, 0)):

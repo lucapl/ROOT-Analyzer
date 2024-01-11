@@ -15,5 +15,8 @@ class Board(StaticObject):
         if output is None:
             return None
         M,cont = output
-        super().contour = cont 
+        self.set_contour(cont)
         self.M = M
+
+    def detect_events(self, frame_num: int, frame) -> str:
+        return None

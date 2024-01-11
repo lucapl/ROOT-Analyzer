@@ -11,6 +11,7 @@ class TrackedObject(ABC):
     def __init__(self, name: str, tracker_type: str, starting_contour, first_frame, velocity_sensivity=10,redetect_timer=48):
         self.name = name
         self.tracker = create_tracker(tracker_type)
+        self.contour = starting_contour
 
         self.init_tracker(first_frame, starting_contour)
 
@@ -45,13 +46,20 @@ class TrackedObject(ABC):
     def update(self, raw_frame):
         ok, bbox = self.tracker.update(raw_frame)
         if ok:
+            self.check_if_lost(bbox)
             if self.last_bbox is not None:
                 self._update_velocity(bbox)
 
             self.last_bbox = bbox
             return bbox
         else:
+            if self.timer > self.redetect_timer:
+                self.redetect(raw_frame)
+            self.timer+=1
             return None
+
+    def check_if_lost(self,bbox):
+        self.timer=0
 
     def detection_fail_msg(self, frame):
         return self.draw_bbox(frame, f"{self.name} Lost", (0, 0, 255))

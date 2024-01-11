@@ -1,4 +1,5 @@
 import numpy as np
+import cv2 as cv
 
 from src.tracking.StaticObject import StaticObject
 from src.tracking.TrackedObject import TrackedObject
@@ -19,7 +20,16 @@ class Card(TrackedObject):
             self.events.append((frame_num, event_msg))
             return event_msg
     def redetect(self, frame):
-        return None
+        self.init_tracker(frame,self.contour)
+
+    def check_if_lost(self, bbox):
+        x,y,w,h = cv.boundingRect(self.contour)
+        px,py,pw,ph = bbox
+        if np.linalg.norm(np.subtract([x,y],[px,py])) > w:
+            self.timer += 1
+        else:
+            self.timer = 0
+
 
 
 class CardPile(StaticObject):
@@ -36,5 +46,5 @@ class CardPile(StaticObject):
         if output is None:
             return None
         M,cont = output
-        super().contour = cont
+        self.set_contour(cont)
         self.M = M

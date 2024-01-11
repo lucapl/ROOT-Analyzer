@@ -33,3 +33,6 @@ class StaticObject(ABC):
 
         return cv.putText(frame, msg, (x, y - 2), cv.FONT_HERSHEY_SIMPLEX, 0.5, color,
                           1, cv.LINE_AA)
+
+    def set_contour(self,contour):
+        self.contour = contour
