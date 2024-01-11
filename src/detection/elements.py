@@ -26,13 +26,25 @@ def detect_dice_tray(img: np.ndarray, thresh=50) -> tuple[np.ndarray, np.ndarray
     cv.drawContours(img_contours, contours, -1, (0, 255, 0), 2)
     cv.drawContours(img_contours, [largest_contour], -1, (0, 0, 255), 2)
 
-    _, _, i_d1, _ = hierarchy[0, i]
-    i_d2, _, _, _ = hierarchy[0, i_d1]
+    
+    tray_children = []
+    _, _, child, _ = hierarchy[0][i]
+    j = child
 
-    return largest_contour, contours[i_d1], contours[i_d2], img_contours
+    while True:
+        _next, _, _, _ = hierarchy[0][j]
+        tray_children.append(j)
+        j = _next
+        if _next == -1:
+            break
+
+    children_mapped = map(lambda i: cv.boundingRect(contours[i]),tray_children)
+    children_sorted = sorted(zip(tray_children,children_mapped),key=lambda bound:-bound[1][2]*bound[1][3])
+
+    return largest_contour, contours[children_sorted[0][0]], contours[children_sorted[1][0]], img_contours
 
 
-def descriptor_detect(img: np.ndarray, board_ref: np.ndarray, distance=0.25):
+def descriptor_detect(img: np.ndarray, board_ref: np.ndarray, distance=0.25,draw_matches=True):
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
     board_gray = cv.cvtColor(board_ref, cv.COLOR_BGR2GRAY)
 
@@ -61,7 +73,8 @@ def descriptor_detect(img: np.ndarray, board_ref: np.ndarray, distance=0.25):
                        flags=2 | 4
                        )
 
-    drawn_matches = cv.drawMatches(board_ref, kp2, img, kp, good_matches, None, **draw_params)
+    if draw_matches:
+        drawn_matches = cv.drawMatches(board_ref, kp2, img, kp, good_matches, None, **draw_params)
 
     warped_board = cv.warpPerspective(board_gray, M, (img.shape[1], img.shape[0]))
 
@@ -71,7 +84,10 @@ def descriptor_detect(img: np.ndarray, board_ref: np.ndarray, distance=0.25):
     contours, _ = cv.findContours(edges2, cv.RETR_TREE, 2)
     # i,largest_contour = max(enumerate(contours), key=lambda i_c:cv.contourArea(i_c[1]))
 
-    return M, drawn_matches, contours[0]
+    if draw_matches:
+        return M, drawn_matches, contours[0]
+    else:
+        return M,contours[0]
 
 
 def detect_score_board(img,

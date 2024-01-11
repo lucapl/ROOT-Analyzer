@@ -8,8 +8,7 @@ from src.utils import create_tracker
 
 class TrackedObject(ABC):
 
-    def __init__(self, name: str, tracker_type: str, starting_contour, first_frame, velocity_sensivity=10,
-                 redetect_timer=48):
+    def __init__(self, name: str, tracker_type: str, starting_contour, first_frame, velocity_sensivity=10,redetect_timer=48):
         self.name = name
         self.tracker = create_tracker(tracker_type)
 
@@ -20,6 +19,8 @@ class TrackedObject(ABC):
         self.velocity = np.array([0, 0])
         self.last_bbox = None
 
+        self.timer = 0
+
         self.redetect_timer = redetect_timer
 
         self.events = []
@@ -27,11 +28,16 @@ class TrackedObject(ABC):
     def init_tracker(self, frame, contour):
         self.tracker.init(frame, cv.boundingRect(contour))
 
+
     def _update_velocity(self, bbox):
         x, y, _, _ = self.last_bbox
         x_p, y_p, _, _ = bbox
 
         self.velocity = np.array([x_p - x, y_p - y])
+
+    @abstractmethod
+    def redetect(self,frame):
+        return None
 
     def is_moving(self):
         return np.linalg.norm(self.velocity, 2) > self.vel_sens

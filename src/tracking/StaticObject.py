@@ -6,6 +6,10 @@ from src.viz.images import draw_bbox
 
 
 class StaticObject(ABC):
+
+    BLUE_COLOR = (255,0,0)
+    ORANGE_COLOR = (0,125,255)
+
     def __init__(self, name: str, contour: np.ndarray) -> None:
         self.name = name
         self.contour = contour
@@ -14,7 +18,11 @@ class StaticObject(ABC):
         self.events = []
 
     @abstractmethod
-    def detect_events(self, frame_num: int, frame: np.ndarray) -> str | None:
+    def detect_events(self, frame_num: int, frame: np.ndarray) -> str:
+        return None
+    
+    @abstractmethod
+    def redetect(self,frame):
         return None
 
     def draw_bbox(self, frame, msg=None, color=(255, 0, 0)):
