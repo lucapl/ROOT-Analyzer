@@ -1,6 +1,7 @@
 import cv2 as cv
 import numpy as np
 from abc import ABC, abstractmethod
+from src.Event import Event
 
 from src.viz.images import draw_bbox
 
@@ -10,12 +11,13 @@ class StaticObject(ABC):
     BLUE_COLOR = (255,0,0)
     ORANGE_COLOR = (0,125,255)
 
-    def __init__(self, name: str, contour: np.ndarray) -> None:
+    def __init__(self, name: str, contour: np.ndarray,event_timer_limit=48) -> None:
         self.name = name
         self.contour = contour
         self.last_bbox = cv.boundingRect(contour)
         print(self.last_bbox)
         self.events = []
+        self.event = Event(event_timer_limit)
 
     @abstractmethod
     def detect_events(self, frame_num: int, frame: np.ndarray) -> str:

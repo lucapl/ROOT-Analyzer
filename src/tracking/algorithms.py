@@ -3,6 +3,8 @@ import numpy as np
 from tqdm import tqdm
 import subprocess
 
+
+from src.Event import Event
 from src.tracking.TrackedObject import TrackedObject
 from src.tracking.StaticObject import StaticObject
 
@@ -43,6 +45,13 @@ def track_video(video, out_path, tracked: list[TrackedObject], statics: list[Sta
         if not ret:
             break
 
+        for idx, obj in enumerate(statics):
+            frame = obj.draw_bbox(frame)
+            event = obj.detect_events(i, raw_frame)
+            if event is not None:
+                frame = cv.putText(frame, event, (0, 50 + idx * 25), cv.FONT_HERSHEY_SIMPLEX,
+                                   1, (0, 0, 255), 2, cv.LINE_AA)
+
         for obj in tracked:
             bbox = obj.update(raw_frame)
             if bbox is None:
@@ -50,15 +59,10 @@ def track_video(video, out_path, tracked: list[TrackedObject], statics: list[Sta
                 continue
             frame = obj.draw_bbox(frame)
             event = obj.detect_events(i)
+            if event is Event: 
+                event = event.get()
             if event is not None:
                 frame = cv.putText(frame, event, (0, 35), cv.FONT_HERSHEY_SIMPLEX,
-                                   1, (0, 0, 255), 2, cv.LINE_AA)
-
-        for idx, obj in enumerate(statics):
-            frame = obj.draw_bbox(frame)
-            event = obj.detect_events(i, raw_frame)
-            if event is not None:
-                frame = cv.putText(frame, event, (0, 50 + idx * 25), cv.FONT_HERSHEY_SIMPLEX,
                                    1, (0, 0, 255), 2, cv.LINE_AA)
 
         # for cont in static:
