@@ -1,0 +1,27 @@
+import cv2 as cv
+import numpy as np
+from abc import ABC, abstractmethod
+
+from src.viz.images import draw_bbox
+
+
+class StaticObject(ABC):
+    def __init__(self, name: str, contour: np.ndarray) -> None:
+        self.name = name
+        self.contour = contour
+        self.last_bbox = cv.boundingRect(contour)
+        print(self.last_bbox)
+        self.events = []
+
+    @abstractmethod
+    def detect_events(self, frame_num: int, frame: np.ndarray) -> str | None:
+        return None
+
+    def draw_bbox(self, frame, msg=None, color=(255, 0, 0)):
+        if msg is None:
+            msg = self.name
+        x, y, w, h = self.last_bbox
+        draw_bbox(frame, self.last_bbox, color)
+
+        return cv.putText(frame, msg, (x, y - 2), cv.FONT_HERSHEY_SIMPLEX, 0.5, color,
+                          1, cv.LINE_AA)
