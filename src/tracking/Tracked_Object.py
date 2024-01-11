@@ -10,7 +10,7 @@ class Tracked_Object:
         self.name = name
 
         self.tracker_type = tracker_type
-        self.init_tracker(tracker_type,first_frame)
+        self.init_tracker(first_frame,starting_contour)
         self.ini_cont = starting_contour
 
         self.vel_sens = velocity_sensivity

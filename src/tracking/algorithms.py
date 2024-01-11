@@ -1,18 +1,19 @@
 import cv2 as cv
 import numpy as np
-import tqdm
+from tqdm import tqdm
+import subprocess
 
 def track_video(video,out_path,tracked,start=0,sec=None):
+    width = int(video.get(cv.CAP_PROP_FRAME_WIDTH))
+    height = int(video.get(cv.CAP_PROP_FRAME_HEIGHT))
+    fps = video.get(cv.CAP_PROP_FPS)
+
     track = cv.VideoWriter(
-        out_path,
+        out_path+'.avi',
         cv.VideoWriter_fourcc(*"DIVX"),
         fps,
         (width, height),
     )
-
-    width = int(video.get(cv.CAP_PROP_FRAME_WIDTH))
-    height = int(video.get(cv.CAP_PROP_FRAME_HEIGHT))
-    fps = video.get(cv.CAP_PROP_FPS)
 
     if sec==None:
         sec = int(video.get(cv.CAP_PROP_FRAME_COUNT))/fps
@@ -57,3 +58,7 @@ def track_video(video,out_path,tracked,start=0,sec=None):
             break
 
     track.release()
+
+    ffmpeg_command = f"ffmpeg -hide_banner -loglevel error -i {out_path}.avi -y {out_path}.mp4"
+    print(f"Running: {ffmpeg_command}")
+    subprocess.run(ffmpeg_command.split())
