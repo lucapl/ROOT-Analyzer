@@ -106,3 +106,9 @@ def detect_score_board(img,
             break
 
     return cells, [contours[i] for i in cells[::-1]], mask_cont
+
+
+def detect_buildings(mask):
+    contours, hierarchy = cv.findContours(mask, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+    buildings = [cont for cont_idx, cont in enumerate(contours) if hierarchy[0][cont_idx][2] == -1]
+    return buildings

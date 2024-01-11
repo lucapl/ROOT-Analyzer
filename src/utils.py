@@ -1,17 +1,6 @@
 import cv2 as cv
 import numpy as np
 
-# TRACKER_TYPES = {
-#     # "BOOSTING": cv2.TrackerBoosting_create(),
-#     "MIL": cv2.TrackerMIL_create(),
-#     "KCF": cv2.TrackerKCF_create(),
-#     # "TLD": cv2.TrackerTLD_create(),
-#     # "MEDIANFLOW": cv2.TrackerMedianFlow_create(),
-#     # "GOTURN": cv2.TrackerGOTURN_create(),
-#     # "MOSSE": cv2.TrackerMOSSE_create(),
-#     "CSRT": cv2.TrackerCSRT_create(),
-# }
-
 
 def crop_contour(img: np.ndarray, contour: np.ndarray) -> np.ndarray:
     """ crops the contour out of the image """
@@ -37,20 +26,17 @@ def rotate_image(img: np.ndarray, angle: float) -> np.ndarray:
     return result
 
 
-def create_tracker(tracker_type) -> cv.Tracker:
-    ''' 
-    This function needs to create new trackers each time, so it can't be the previous solution
-    Tracker types:
-
-        "BOOSTING",
-        "MIL",
-        "KCF",
-        "TLD",
-        "MEDIANFLOW",
-        "GOTURN",
-        "MOSSE",
-        "CSRT",
-    '''
+def create_tracker(tracker_type):
+    trackers = {
+        "BOOSTING": cv.TrackerBoosting_create(),
+        "MIL": cv.TrackerMIL_create(),
+        "KCF": cv.TrackerKCF_create(),
+        "TLD": cv.TrackerTLD_create(),
+        "MEDIANFLOW": cv.TrackerMedianFlow_create(),
+        "GOTURN": cv.TrackerGOTURN_create(),
+        "MOSSE": cv.TrackerMOSSE_create(),
+        "CSRT": cv.TrackerCSRT_create(),
+    }
 
     if tracker_type == "BOOSTING":
         return cv.TrackerBoosting_create()
@@ -69,6 +55,8 @@ def create_tracker(tracker_type) -> cv.Tracker:
     if tracker_type == "CSRT":
         return cv.TrackerCSRT_create()
 
+
+    
 def dominant_colors(image: np.ndarray, n_clusters=3):
     data = cv.resize(image, (100, 100)).reshape(-1, 3)
     criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 10, 1.0)
