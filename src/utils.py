@@ -26,7 +26,7 @@ def rotate_image(img: np.ndarray, angle: float) -> np.ndarray:
     result = cv2.warpAffine(img, rot_mat, img.shape[1::-1], flags=cv2.INTER_LINEAR)
     return result
 
-def create_tracker(tracker_type):
+def create_tracker(tracker_type) -> cv.Tracker:
     tracker_types = [
         "BOOSTING",
         "MIL",
