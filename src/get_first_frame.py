@@ -2,7 +2,7 @@ import cv2 as cv
 from sys import argv
 
 
-def get_first_frame(_input: str, verbose=False) -> cv.Mat | None:
+def get_first_frame(_input: str, verbose=False) -> cv.Mat:# | available since python 3.10
     if verbose:
         print(_input)
 
