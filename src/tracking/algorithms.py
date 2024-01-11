@@ -1,19 +1,13 @@
 import cv2 as cv
 import numpy as np
 from tqdm import tqdm
-<<<<<<< HEAD
 import subprocess
 
-def track_video(video,out_path,tracked,start=0,sec=None):
-    width = int(video.get(cv.CAP_PROP_FRAME_WIDTH))
-    height = int(video.get(cv.CAP_PROP_FRAME_HEIGHT))
-    fps = video.get(cv.CAP_PROP_FPS)
-
-=======
-from src.tracking import TrackedObject
+from src.tracking.TrackedObject import TrackedObject
+from src.tracking.StaticObject import StaticObject
 
 
-def track_video(video, out_path, tracked: list[TrackedObject], start=0, sec=None):
+def track_video(video, out_path, tracked: list[TrackedObject], statics: list[StaticObject], start=0, sec=None):
     width = int(video.get(cv.CAP_PROP_FRAME_WIDTH))
     height = int(video.get(cv.CAP_PROP_FRAME_HEIGHT))
     fps = video.get(cv.CAP_PROP_FPS)
@@ -21,25 +15,16 @@ def track_video(video, out_path, tracked: list[TrackedObject], start=0, sec=None
     if sec is None:
         sec = int(video.get(cv.CAP_PROP_FRAME_COUNT)) / fps
 
->>>>>>> dd86609 (code cleanup)
     track = cv.VideoWriter(
-        out_path+'.avi',
+        out_path + '.avi',
         cv.VideoWriter_fourcc(*"DIVX"),
         fps,
         (width, height),
     )
 
-<<<<<<< HEAD
-    if sec==None:
-        sec = int(video.get(cv.CAP_PROP_FRAME_COUNT))/fps
-
-    video.set(cv.CAP_PROP_POS_FRAMES,start)
-    for i in tqdm(range(int(sec*fps))):
-=======
     video.set(cv.CAP_PROP_POS_FRAMES, start)
 
     for i in tqdm(range(int(sec * fps))):
->>>>>>> dd86609 (code cleanup)
         if not video.isOpened():
             break
         if i > sec * fps:
@@ -51,13 +36,6 @@ def track_video(video, out_path, tracked: list[TrackedObject], start=0, sec=None
         if not ret:
             break
 
-<<<<<<< HEAD
-    track.release()
-
-    ffmpeg_command = f"ffmpeg -hide_banner -loglevel error -i {out_path}.avi -y {out_path}.mp4"
-    print(f"Running: {ffmpeg_command}")
-    subprocess.run(ffmpeg_command.split())
-=======
         for obj in tracked:
             bbox = obj.update(raw_frame)
             if bbox is None:
@@ -66,7 +44,14 @@ def track_video(video, out_path, tracked: list[TrackedObject], start=0, sec=None
             frame = obj.draw_bbox(frame)
             event = obj.detect_events(i)
             if event is not None:
-                frame = cv.putText(frame, event, (0, 0), cv.FONT_HERSHEY_SIMPLEX,
+                frame = cv.putText(frame, event, (0, 35), cv.FONT_HERSHEY_SIMPLEX,
+                                   1, (0, 0, 255), 2, cv.LINE_AA)
+
+        for idx, obj in enumerate(statics):
+            frame = obj.draw_bbox(frame)
+            event = obj.detect_events(i, raw_frame)
+            if event is not None:
+                frame = cv.putText(frame, event, (0, 50 + idx * 25), cv.FONT_HERSHEY_SIMPLEX,
                                    1, (0, 0, 255), 2, cv.LINE_AA)
 
         # for cont in static:
@@ -87,4 +72,7 @@ def track_video(video, out_path, tracked: list[TrackedObject], start=0, sec=None
         track.write(frame)
 
     track.release()
->>>>>>> dd86609 (code cleanup)
+
+    ffmpeg_command = f"ffmpeg -hide_banner -loglevel error -i {out_path}.avi -y {out_path}.mp4"
+    print(f"Running: {ffmpeg_command}")
+    subprocess.run(ffmpeg_command.split())
