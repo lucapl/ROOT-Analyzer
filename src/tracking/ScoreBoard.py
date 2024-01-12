@@ -7,18 +7,20 @@ from src.utils import warp_contour
 
 
 class ScoreBoard(StaticObject):
-    def __init__(self, name, board_ref, mask):
+    def __init__(self, name,board, mask):
         super().__init__(name)
-        self.board_ref = board_ref
         self.mask = mask
+        self.board = board
         self.cell_contours = None
+        self.static_contours,score_ref = detect_score_board(self.board.ref, self.mask)
+        score_x, score_y, _, _ = cv.boundingRect(score_ref)
+        self.score_offset = [score_x, score_y]
+
         self.current_score = None
         self.current_scores = []
 
-    def redetect(self, frame, M):
-        cell_contours, score_ref = detect_score_board(self.board_ref, self.mask)
-        score_x, score_y, _, _ = cv.boundingRect(score_ref)
-        self.cell_contours = list(map(lambda c: warp_contour(c, M), [c + [score_x, score_y] for c in cell_contours]))
+    def redetect(self, frame,):
+        self.cell_contours = list(map(lambda c: warp_contour(c, self.board.M), [c + self.score_offset for c in self.static_contours]))
 
     def draw(self, frame, msg=None, color=(0, 122, 0)):
         if self.cell_contours is None:
