@@ -91,3 +91,39 @@ def resize_contour(contour, factor=0.25):
     resized_contour[:, :, 0] = contour[:, :, 0] * factor
     resized_contour[:, :, 1] = contour[:, :, 1] * factor
     return resized_contour
+
+def get_clearings_and_buildings(clearing_mask):
+
+    def contours_reorg(contours):
+        swaps = [(0,3),
+                (0,2),
+                (1,3),
+                (5,6)]
+        for i,j in swaps:
+            contours[i],contours[j] = contours[j],contours[i]
+        contours.reverse()
+        contours[-4:] = contours[-4:][::-1]
+        return contours
+    
+    def get_children(i,contours,hierarchy):
+
+        _,_,child,_ = hierarchy[0][i]
+        children = []
+        while True:
+            if child == -1:
+                break
+            children.append(contours[child])
+            child, _, _, _ = hierarchy[0][child]
+        return children
+    
+    contours, hierarchy = cv.findContours(clearing_mask,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
+    filtered = [(i,cont) for i,cont in enumerate(contours) if hierarchy[0][i][3] == -1]
+    reorged = contours_reorg(filtered)
+    reorged_conts = []
+
+    buildings = {}
+    for j,(i,cont) in enumerate(reorged):
+        buildings[j] = get_children(i,contours,hierarchy)
+        reorged_conts.append(cont)
+
+    return reorged_conts,buildings
