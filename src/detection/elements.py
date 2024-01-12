@@ -142,43 +142,46 @@ def detect_clearing(mask):
                  hierarchy[0][cont_idx][3] == -1]  # parentless contours
     return clearings
 
-def _safe_div(a,b):
-    return a/b if b != 0 else 0
 
-def detect_pawns(frame,clearing_mask,pawn_colors:Dict[str,tuple],diff_sensivity=0.4,area_sensivity=0.3):
+def _safe_div(a, b):
+    return a / b if b != 0 else 0
+
+
+def detect_pawns(frame, clearing_mask, pawn_colors: Dict[str, tuple], diff_sensivity=0.4, area_sensivity=0.3):
     ''' this function gets the warped clearing mask and returns estimated pawns for each clearing'''
 
     clearings = detect_clearing(clearing_mask)
-    pawns = dict([(player,[]) for player in pawn_colors.keys()])
-    hsv_frame = cv.cvtColor(frame,cv.COLOR_BGR2HSV)
-    hsv_frame = cv.bitwise_and(hsv_frame,hsv_frame,mask=clearing_mask)
+    pawns = dict([(player, []) for player in pawn_colors.keys()])
+    hsv_frame = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
+    clearing_mask_2 = cv.resize(clearing_mask, (hsv_frame.shape[1], hsv_frame.shape[0]))
+    hsv_frame = cv.bitwise_and(hsv_frame, hsv_frame, mask=clearing_mask_2)
     masks = {}
     biggest_area = {}
-    for player,color_range in pawn_colors.items():
-        color_mask = cv.inRange(hsv_frame,*color_range)
-        color_mask = cv.erode(color_mask,np.ones((5,5)))
+    for player, color_range in pawn_colors.items():
+        color_mask = cv.inRange(hsv_frame, *color_range)
+        color_mask = cv.erode(color_mask, np.ones((5, 5)))
         masks[player] = color_mask
-        contours,_ = cv.findContours(color_mask, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-        biggest_area[player] = np.max(tuple(map(lambda c: cv.contourArea(c),contours)))
+        contours, _ = cv.findContours(color_mask, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+        biggest_area[player] = np.max(tuple(map(lambda c: cv.contourArea(c), contours)))
 
-    for k,cont in enumerate(clearings):
-        for player,_ in pawn_colors.items():
-            img = crop_contour(masks[player],cont)
-            contours,_ = cv.findContours(img, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-            #pawns[player] = (i,len(contours))
+    for k, cont in enumerate(clearings):
+        for player, _ in pawn_colors.items():
+            img = crop_contour(masks[player], cont)
+            contours, _ = cv.findContours(img, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+            # pawns[player] = (i,len(contours))
             imshow(img)
-            areas = tuple(reversed(sorted(map(lambda c: cv.contourArea(c),contours))))
-            diffs = [_safe_div((areas[i]-areas[i+1]),areas[i]) for i in range(len(areas)-1)]
+            areas = tuple(reversed(sorted(map(lambda c: cv.contourArea(c), contours))))
+            diffs = [_safe_div((areas[i] - areas[i + 1]), areas[i]) for i in range(len(areas) - 1)]
             j = 0
             for i in range(len(diffs)):
-                #print(_safe_div(areas[i],biggest_area[player]))
-                if _safe_div(areas[i],biggest_area[player]) < area_sensivity:
-                    j=i
+                # print(_safe_div(areas[i],biggest_area[player]))
+                if _safe_div(areas[i], biggest_area[player]) < area_sensivity:
+                    j = i
                     break
 
                 if diffs[i] > diff_sensivity:
-                    j = i+1
+                    j = i + 1
                     break
-            pawns[player].append((k,j))
+            pawns[player].append((k, j))
 
     return pawns

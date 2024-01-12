@@ -3,8 +3,6 @@ import numpy as np
 from tqdm import tqdm
 import subprocess
 
-
-from src.Event import Event
 from src.tracking.TrackedObject import TrackedObject
 from src.tracking.StaticObject import StaticObject
 from src.tracking.Board import Board
@@ -37,45 +35,25 @@ def track_video(video, out_path, board: Board, tracked: list[TrackedObject], sta
         ret, frame = video.read()
         raw_frame = np.copy(frame)
 
-
-        if i % 120 == 0:
+        if i % 900 == 0:
             board.redetect(raw_frame, board.M)
             for static in statics:
                 static.redetect(raw_frame, board.M)
 
-        # if i % 30 == 0:
-        #     for tracked_obj in tracked:
-        #         tracked_obj.redetect(raw_frame)
-
         if not ret:
             break
-
-
-        for idx, obj in enumerate(statics):
-            frame = obj.draw_bbox(frame)
-            event = obj.detect_events(i, raw_frame)
-            if type(event) is Event:
-                event = event.get()
-            if event is not None:
-                frame = cv.putText(frame, event, (0, 50 + idx * 25), cv.FONT_HERSHEY_SIMPLEX,
-                                   1, (0, 0, 255), 2, cv.LINE_AA)
 
         for obj in tracked:
             bbox = obj.update(raw_frame)
             if bbox is None:
                 frame = obj.detection_fail_msg(frame)
                 continue
+            frame = obj.detect_events(i, frame)
             frame = obj.draw_bbox(frame)
-            event = obj.detect_events(i)
-            if type(event) is Event:
-                event = event.get()
-            if event is not None:
-                frame = cv.putText(frame, event, (0, 35), cv.FONT_HERSHEY_SIMPLEX,
-                                   1, (0, 0, 255), 2, cv.LINE_AA)
 
         for obj in statics:
-            frame = obj.draw(frame)
             frame = obj.detect_events(i, frame)
+            frame = obj.draw(frame)
 
         track.write(frame)
 
