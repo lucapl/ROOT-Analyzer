@@ -16,12 +16,9 @@ class Buildings(StaticObject):
         self.current_score = None
         self.current_scores = []
 
-    def redetect(self, frame):
+    def redetect(self, frame, M):
         building_contours = detect_buildings(self.mask)
-        building_contours = warp_contours([cont for cont in building_contours], self.board.M)
-        self.building_contours = building_contours
-        self.orange_buildings,self.blue_buildings,orange_score,blue_score = calculate_current_buildings(frame,building_contours , self.orange, self.blue)
-        self.current_score = (orange_score,blue_score)
+        self.building_contours = list(map(lambda c: warp_contour(c, M), building_contours))
 
     def detect_events(self, frame_num: int, frame: np.ndarray) -> np.ndarray:
         self.event.update()
