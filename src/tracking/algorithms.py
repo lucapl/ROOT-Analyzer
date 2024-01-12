@@ -40,6 +40,10 @@ def track_video(video, out_path, board: Board, tracked: list[TrackedObject], sta
             for static in statics:
                 static.redetect(raw_frame, board.M)
 
+        if i % 120 == 0:
+            for obj in tracked:
+                obj.redetect(raw_frame)
+
         if not ret:
             break
 
