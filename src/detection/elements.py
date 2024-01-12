@@ -7,7 +7,7 @@ from src.viz.images import imshow
 from typing import Dict
 
 
-def detect_dice_tray(img: np.ndarray, thresh=50) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def detect_dice_tray(img: np.ndarray, thresh=50,draw_contours=True) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """ this function uses the fact that the dice tray is all black """
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
     filtered = cv.bilateralFilter(gray, 9, 250, 250)
@@ -22,10 +22,11 @@ def detect_dice_tray(img: np.ndarray, thresh=50) -> tuple[np.ndarray, np.ndarray
     # detect dice tray
     i, largest_contour = max(enumerate(contours), key=lambda i_c: cv.contourArea(i_c[1]))
 
+    if draw_contours:
     # draw contours over image
-    img_contours = np.copy(img)
-    cv.drawContours(img_contours, contours, -1, (0, 255, 0), 2)
-    cv.drawContours(img_contours, [largest_contour], -1, (0, 0, 255), 2)
+        img_contours = np.copy(img)
+        cv.drawContours(img_contours, contours, -1, (0, 255, 0), 2)
+        cv.drawContours(img_contours, [largest_contour], -1, (0, 0, 255), 2)
 
     tray_children = []
     _, _, child, _ = hierarchy[0][i]
@@ -41,7 +42,15 @@ def detect_dice_tray(img: np.ndarray, thresh=50) -> tuple[np.ndarray, np.ndarray
     children_mapped = map(lambda i: cv.boundingRect(contours[i]), tray_children)
     children_sorted = sorted(zip(tray_children, children_mapped), key=lambda bound: -bound[1][2] * bound[1][3])
 
-    return largest_contour, contours[children_sorted[0][0]], contours[children_sorted[1][0]], img_contours
+    dice1,dice2 = contours[children_sorted[0][0]], contours[children_sorted[1][0]]
+
+    if len(children_sorted) < 2:
+        dice1,dice2 = None,None
+
+    if draw_contours:
+        return largest_contour, dice1,dice2, img_contours
+    else:
+        return largest_contour, contours[children_sorted[0][0]], contours[children_sorted[1][0]]
 
 
 def descriptor_detect(img: np.ndarray, board_ref: np.ndarray, distance=0.25, draw_matches=True):
@@ -147,14 +156,14 @@ def _safe_div(a, b):
     return a / b if b != 0 else 0
 
 
-def detect_pawns(frame, clearing_mask, pawn_colors: Dict[str, tuple], diff_sensivity=0.4, area_sensivity=0.3):
+def detect_pawns(frame, clearings,warped_mask, pawn_colors: Dict[str, tuple], diff_sensivity=0.4, area_sensivity=0.3,verbose=False):
     ''' this function gets the warped clearing mask and returns estimated pawns for each clearing'''
 
-    clearings = detect_clearing(clearing_mask)
+    #clearings = detect_clearing(clearing_mask)
     pawns = dict([(player, []) for player in pawn_colors.keys()])
     hsv_frame = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
-    clearing_mask_2 = cv.resize(clearing_mask, (hsv_frame.shape[1], hsv_frame.shape[0]))
-    hsv_frame = cv.bitwise_and(hsv_frame, hsv_frame, mask=clearing_mask_2)
+    clearing_mask_2 = cv.resize(warped_mask, (hsv_frame.shape[1], hsv_frame.shape[0]))
+    hsv_frame = cv.bitwise_and(hsv_frame, hsv_frame, mask=warped_mask)
     masks = {}
     biggest_area = {}
     for player, color_range in pawn_colors.items():
@@ -169,7 +178,8 @@ def detect_pawns(frame, clearing_mask, pawn_colors: Dict[str, tuple], diff_sensi
             img = crop_contour(masks[player], cont)
             contours, _ = cv.findContours(img, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
             # pawns[player] = (i,len(contours))
-            imshow(img)
+            if verbose: imshow(img)
+
             areas = tuple(reversed(sorted(map(lambda c: cv.contourArea(c), contours))))
             diffs = [_safe_div((areas[i] - areas[i + 1]), areas[i]) for i in range(len(areas) - 1)]
             j = 0
@@ -182,6 +192,7 @@ def detect_pawns(frame, clearing_mask, pawn_colors: Dict[str, tuple], diff_sensi
                 if diffs[i] > diff_sensivity:
                     j = i + 1
                     break
+            if verbose: print((f"Clearing {k}: {j} {player} pawns"))
             pawns[player].append((k, j))
 
     return pawns
