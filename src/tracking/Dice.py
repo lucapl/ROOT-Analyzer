@@ -11,9 +11,12 @@ class Dice(TrackedObject):
         self.threshold = threshold
 
     def redetect(self, frame):
+        # the dice should be tracked by the same object because calculating the dice tray each time is quite expensive
         _, dice_1, dice_2, _ = detect_dice_tray(frame, self.threshold)
-        self.contour = dice_1 if self.dice_num == 1 else dice_2
-        self.init_tracker(frame, self.contour)
+        dice = dice_1 if self.dice_num == 1 else dice_2
+        if dice != None:
+            self.contour = dice
+            self.init_tracker(frame, self.contour)
 
     def detect_events(self, frame_num: int, frame: np.ndarray) -> np.ndarray:
         self.event.update()

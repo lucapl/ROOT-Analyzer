@@ -8,7 +8,7 @@ from src.tracking.StaticObject import StaticObject
 from src.tracking.Board import Board
 
 
-def track_video(video, out_path, board: Board, tracked: list[TrackedObject], statics: list[StaticObject],
+def track_video(video, out_path, tracked: list[TrackedObject], statics: list[StaticObject],
                 start=0, sec=None):
     width = int(video.get(cv.CAP_PROP_FRAME_WIDTH))
     height = int(video.get(cv.CAP_PROP_FRAME_HEIGHT))
@@ -36,9 +36,9 @@ def track_video(video, out_path, board: Board, tracked: list[TrackedObject], sta
         raw_frame = np.copy(frame)
 
         if i % 900 == 0:
-            board.redetect(raw_frame, board.M)
+            #board.redetect(raw_frame, board.M)
             for static in statics:
-                static.redetect(raw_frame, board.M)
+                static.redetect(raw_frame)
 
         if i % 120 == 0:
             for obj in tracked:

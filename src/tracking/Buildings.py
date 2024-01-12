@@ -8,17 +8,18 @@ from src.utils import warp_contour
 
 
 class Buildings(StaticObject):
-    def __init__(self, name, mask):
+    def __init__(self, name,board, mask):
         super().__init__(name)
         self.mask = mask
         self.building_contours = None
+        self.board = board
         self.orange_buildings, self.blue_buildings = [], []
         self.current_score = None
         self.current_scores = []
 
-    def redetect(self, frame, M):
+    def redetect(self, frame,):
         building_contours = detect_buildings(self.mask)
-        self.building_contours = list(map(lambda c: warp_contour(c, M), building_contours))
+        self.building_contours = list(map(lambda c: warp_contour(c, self.board.M), building_contours))
 
     def detect_events(self, frame_num: int, frame: np.ndarray) -> np.ndarray:
         self.event.update()

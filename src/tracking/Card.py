@@ -9,10 +9,10 @@ from src.viz.images import draw_bbox
 
 class Card(TrackedObject):
 
-    def __init__(self, name, tracker_type, ref, distance=.5, velocity_sensivity=10):
+    def __init__(self, name, tracker_type, card_pile, distance=.5, velocity_sensivity=10):
         super().__init__(name, tracker_type, velocity_sensivity)
-        self.ref = ref
         self.distance = distance
+        self.card_pile = card_pile
 
     def detect_events(self, frame_num: int, frame: np.ndarray) -> np.ndarray:
         self.event.update()
@@ -27,11 +27,14 @@ class Card(TrackedObject):
         return cv.putText(frame, self.event.get(), (0, 50), cv.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 3, cv.LINE_AA)
 
     def redetect(self, frame):
-        output = descriptor_detect(frame, self.ref, distance=self.distance, draw_matches=False)
-        if output is None:
-            return
-        _, self.contour = output
-        self.init_tracker(frame, self.contour)
+        # running descriptor tracking is very expensive, so we should just run tracking from the card piles contour
+
+        # output = descriptor_detect(frame, self.ref, distance=self.distance, draw_matches=False)
+        # if output is None:
+        #     return
+        # _, self.contour = output
+        # self.init_tracker(frame, self.contour)
+        self.init_tracker(frame,self.card_pile.contour)
 
     def check_if_lost(self, bbox):
         x, y, w, h = cv.boundingRect(self.contour)
@@ -53,7 +56,7 @@ class CardPile(StaticObject):
     def detect_events(self, frame_num: int, frame: np.ndarray) -> np.ndarray:
         return frame
 
-    def redetect(self, frame, M_board):
+    def redetect(self, frame,):
         output = descriptor_detect(frame, self.ref, distance=self.distance, draw_matches=False)
         if output is None:
             return None
