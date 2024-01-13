@@ -21,6 +21,8 @@ class Pawns(StaticObject):
         self.area_sensivity = area_sensivity
         self.counted_pawns = None
         self.counted_pawns_over_time = []
+        self.total_pawns = None
+        self.total_pawns_over_time = []
         self.clearing_control = None
         self.clearing_control_over_time = []
 
@@ -37,7 +39,7 @@ class Pawns(StaticObject):
     def detect_events(self, frame_num: int, frame: np.ndarray) -> np.ndarray:
         self.event.update()
 
-        self.counted_pawns = detect_pawns(frame,self.warped_contours,self.warp_mask,self.pawn_colors,self.diff_sensivity,self.area_sensivity,with_ids=False)
+        self.counted_pawns,self.total_pawns = detect_pawns(frame,self.warped_contours,self.warp_mask,self.pawn_colors,self.diff_sensivity,self.area_sensivity,with_ids=False)
 
         self.clearing_control = []
 

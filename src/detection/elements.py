@@ -161,6 +161,8 @@ def detect_pawns(frame, clearings,warped_mask, pawn_colors: Dict[str, tuple], di
 
     #clearings = detect_clearing(clearing_mask)
     pawns = dict([(player, []) for player in pawn_colors.keys()])
+    total_pawns = dict([(player, 0) for player in pawn_colors.keys()])
+
     hsv_frame = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
     clearing_mask_2 = cv.resize(warped_mask, (hsv_frame.shape[1], hsv_frame.shape[0]))
     hsv_frame = cv.bitwise_and(hsv_frame, hsv_frame, mask=warped_mask)
@@ -172,6 +174,7 @@ def detect_pawns(frame, clearings,warped_mask, pawn_colors: Dict[str, tuple], di
         masks[player] = color_mask
         contours, _ = cv.findContours(color_mask, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
         biggest_area[player] = np.max(tuple(map(lambda c: cv.contourArea(c), contours)))
+
 
     for k, cont in enumerate(clearings):
         if verbose: 
@@ -200,6 +203,7 @@ def detect_pawns(frame, clearings,warped_mask, pawn_colors: Dict[str, tuple], di
                     j = i + 1
                     break
             if verbose: print((f"Clearing {k}: {j} {player} pawns"))
+            total_pawns[player] += j
             if with_ids:
                 pawns[player].append((k, j))
             else:
@@ -208,4 +212,4 @@ def detect_pawns(frame, clearings,warped_mask, pawn_colors: Dict[str, tuple], di
         if verbose: 
             imshow(image_to_show)
 
-    return pawns
+    return pawns,total_pawns
