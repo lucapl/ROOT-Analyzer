@@ -156,7 +156,7 @@ def _safe_div(a, b):
     return a / b if b != 0 else 0
 
 
-def detect_pawns(frame, clearings,warped_mask, pawn_colors: Dict[str, tuple], diff_sensivity=0.4, area_sensivity=0.3,verbose=False):
+def detect_pawns(frame, clearings,warped_mask, pawn_colors: Dict[str, tuple], diff_sensivity=0.4, area_sensivity=0.3,with_ids=True,verbose=False):
     ''' this function gets the warped clearing mask and returns estimated pawns for each clearing'''
 
     #clearings = detect_clearing(clearing_mask)
@@ -174,11 +174,18 @@ def detect_pawns(frame, clearings,warped_mask, pawn_colors: Dict[str, tuple], di
         biggest_area[player] = np.max(tuple(map(lambda c: cv.contourArea(c), contours)))
 
     for k, cont in enumerate(clearings):
+        if verbose: 
+            _,_,w,h = cv.boundingRect(cont)
+            image_to_show = np.zeros((h,w,3))
+
         for player, _ in pawn_colors.items():
             img = crop_contour(masks[player], cont)
             contours, _ = cv.findContours(img, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
             # pawns[player] = (i,len(contours))
-            if verbose: imshow(img)
+            
+            if verbose:
+                bgr = 0 if player == "blue" else 2
+                image_to_show[:,:,bgr] = img
 
             areas = tuple(reversed(sorted(map(lambda c: cv.contourArea(c), contours))))
             diffs = [_safe_div((areas[i] - areas[i + 1]), areas[i]) for i in range(len(areas) - 1)]
@@ -193,6 +200,12 @@ def detect_pawns(frame, clearings,warped_mask, pawn_colors: Dict[str, tuple], di
                     j = i + 1
                     break
             if verbose: print((f"Clearing {k}: {j} {player} pawns"))
-            pawns[player].append((k, j))
+            if with_ids:
+                pawns[player].append((k, j))
+            else:
+                pawns[player].append(j)
+
+        if verbose: 
+            imshow(image_to_show)
 
     return pawns
