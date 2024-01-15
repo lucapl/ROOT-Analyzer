@@ -21,8 +21,8 @@ class Pawns(StaticObject):
         self.area_sensivity = area_sensivity
         self.counted_pawns = None
         self.counted_pawns_over_time = []
-        self.total_pawns = None
-        self.total_pawns_over_time = []
+        self.total_pawns = (0,0)
+        self.total_pawns_over_time = {"orange":[],"blue":[]}
         self.clearing_control = None
         self.clearing_control_over_time = []
 
@@ -39,7 +39,7 @@ class Pawns(StaticObject):
     def detect_events(self, frame_num: int, frame: np.ndarray) -> np.ndarray:
         self.event.update()
 
-        self.counted_pawns,self.total_pawns = detect_pawns(frame,self.warped_contours,self.warp_mask,self.pawn_colors,self.diff_sensivity,self.area_sensivity,with_ids=False)
+        self.counted_pawns,total_pawns = detect_pawns(frame,self.warped_contours,self.warp_mask,self.pawn_colors,self.diff_sensivity,self.area_sensivity,with_ids=False)
 
         self.clearing_control = []
 
@@ -49,10 +49,26 @@ class Pawns(StaticObject):
             self.clearing_control.append(self._determine_control(orange_pawns,blue_pawns))
         
         self.clearing_control_over_time.append(self.clearing_control)
-        if len(self.clearing_control) > 30:
+        self.total_pawns_over_time["orange"].append(total_pawns["orange"])
+        self.total_pawns_over_time["blue"].append(total_pawns["blue"])
+        if len(self.clearing_control_over_time) > 30:
             self.clearing_control_over_time.pop(0)
+            self.total_pawns_over_time["blue"].pop(0)
+            self.total_pawns_over_time["orange"].pop(0)
 
-        return frame
+        average_score = self.get_average_total()
+        if self.total_pawns != average_score:
+            self.event.msg = (f"Total pawns changed Orange: {average_score[0]} "
+                              f"Blue: {average_score[1]}")
+            self.total_pawns = average_score
+            self.event.reset()
+
+        frame = cv.putText(frame, self.event.get(), (0, 350), cv.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 0), 5, cv.LINE_AA)
+        return cv.putText(frame, self.event.get(), (0, 350), cv.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 3, cv.LINE_AA)
+
+    def get_average_total(self):
+        return (np.mean([self.total_pawns_over_time["orange"]], dtype=int),
+                np.mean([self.total_pawns_over_time["blue"]], dtype=int))
 
     def draw(self,frame):
         #c = np.repeat(np.copy(board_mask[:,:,0])[:,:,np.newaxis],3,axis=2)
