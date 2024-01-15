@@ -42,15 +42,15 @@ def detect_dice_tray(img: np.ndarray, thresh=50,draw_contours=True) -> tuple[np.
     children_mapped = map(lambda i: cv.boundingRect(contours[i]), tray_children)
     children_sorted = sorted(zip(tray_children, children_mapped), key=lambda bound: -bound[1][2] * bound[1][3])
 
-    dice1,dice2 = contours[children_sorted[0][0]], contours[children_sorted[1][0]]
+    dice1,dice2 = None,None
 
-    if len(children_sorted) < 2:
-        dice1,dice2 = None,None
+    if len(children_sorted) >= 2:
+        dice1,dice2 = contours[children_sorted[0][0]], contours[children_sorted[1][0]]
 
     if draw_contours:
         return largest_contour, dice1,dice2, img_contours
     else:
-        return largest_contour, contours[children_sorted[0][0]], contours[children_sorted[1][0]]
+        return largest_contour, dice1, dice2
 
 
 def descriptor_detect(img: np.ndarray, board_ref: np.ndarray, distance=0.25, draw_matches=True):

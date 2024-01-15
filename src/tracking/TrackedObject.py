@@ -12,6 +12,7 @@ class TrackedObject(ABC):
     def __init__(self, name: str, tracker_type: str, velocity_sensivity=10, redetect_timer=48):
         self.name = name
         self.tracker = create_tracker(tracker_type)
+        self.isInit = False
         self.event = Event(redetect_timer)
 
         self.vel_sens = velocity_sensivity
@@ -26,6 +27,7 @@ class TrackedObject(ABC):
     def init_tracker(self, frame, contour):
         bd = cv.boundingRect(contour)
         self.tracker.init(frame, cv.boundingRect(contour))
+        self.isInit = True
 
     def _update_velocity(self, bbox):
         x, y, _, _ = self.last_bbox
@@ -45,6 +47,9 @@ class TrackedObject(ABC):
         return np.linalg.norm(self.velocity, 2) > self.vel_sens
 
     def update(self, raw_frame):
+        if not self.isInit:
+            return None
+
         ok, bbox = self.tracker.update(raw_frame)
         if ok:
             self.check_if_lost(bbox)
@@ -66,6 +71,9 @@ class TrackedObject(ABC):
         return self.draw_bbox(frame, f"{self.name} Lost", (0, 0, 255))
 
     def draw_bbox(self, frame, msg=None, color=(0, 255, 0)):
+        if self.last_bbox is None:
+            return frame
+
         if msg is None:
             msg = self.name
         x, y, w, h = self.last_bbox

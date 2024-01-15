@@ -17,7 +17,8 @@ class Dice(TrackedObject):
         #_, dice_1, dice_2, _ = detect_dice_tray(frame, self.threshold)
         dice_1,dice_2 = self.diceTray.dice1,self.diceTray.dice2
         dice = dice_1 if self.dice_num == 1 else dice_2
-        if dice != None:
+        if type(dice) != type(None):
+            self.isInit = False
             self.contour = dice
             self.init_tracker(frame, self.contour)
 
@@ -28,17 +29,18 @@ class Dice(TrackedObject):
             self.event.reset()
             self.event.msg = f"{self.name} is rolling"
 
-        frame = cv.putText(frame, self.event.get(), (100 * self.dice_num, 100), cv.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 0), 5, cv.LINE_AA)
-        return cv.putText(frame, self.event.get(), (100 * self.dice_num, 100), cv.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 3, cv.LINE_AA)
+        frame = cv.putText(frame, self.event.get(), (100 * self.dice_num, 50), cv.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 0), 5, cv.LINE_AA)
+        return cv.putText(frame, self.event.get(), (100 * self.dice_num, 50), cv.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 3, cv.LINE_AA)
     
 
 
 class DiceTray(StaticObject):
-    def __init__(self,name):
+    def __init__(self,name,threshold=30):
         super().__init__(name)
         self.dice1 = None
         self.dice2 = None
         self.tray = None
+        self.threshold=30
 
     def redetect(self, frame,):
         self.tray, self.dice1, self.dice2 = detect_dice_tray(frame, self.threshold,False)
