@@ -35,9 +35,9 @@ def track_video(video, out_path, tracked: list[TrackedObject], statics: list[Sta
         ret, frame = video.read()
         raw_frame = np.copy(frame)
 
-        if i % 900 == 0:
             #board.redetect(raw_frame, board.M)
-            for static in statics:
+        for static in statics:
+            if i % static.refresh_rate == 0:
                 static.redetect(raw_frame)
 
         if i % 120 == 0:

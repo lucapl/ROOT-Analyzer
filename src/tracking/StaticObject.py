@@ -12,9 +12,10 @@ class StaticObject(ABC):
     LOWER_DARK_BLUE = np.array([100, 50, 50])
     UPPER_DARK_BLUE = np.array([140, 255, 255])
 
-    def __init__(self, name: str, event_timer_limit=120) -> None:
+    def __init__(self, name: str,refresh_rate = 900, event_timer_limit=120) -> None:
         self.name = name
         self.event = Event(event_timer_limit)
+        self.refresh_rate=refresh_rate
 
     @abstractmethod
     def detect_events(self, frame_num: int, frame: np.ndarray) -> np.ndarray:

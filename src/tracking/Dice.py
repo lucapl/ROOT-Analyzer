@@ -36,11 +36,11 @@ class Dice(TrackedObject):
 
 class DiceTray(StaticObject):
     def __init__(self,name,threshold=30):
-        super().__init__(name)
+        super().__init__(name,refresh_rate=120)#match tracked object refreshrate
         self.dice1 = None
         self.dice2 = None
         self.tray = None
-        self.threshold=30
+        self.threshold=threshold
 
     def redetect(self, frame,):
         self.tray, self.dice1, self.dice2 = detect_dice_tray(frame, self.threshold,False)
