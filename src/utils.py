@@ -1,18 +1,38 @@
 import cv2 as cv
 import numpy as np
+from copy import deepcopy
 
 
-def crop_contour(img: np.ndarray, contour: np.ndarray) -> np.ndarray:
-    """ crops the contour out of the image """
+def crop_image(img: np.ndarray, contour: np.ndarray) -> np.ndarray:
+    """
+    Crops the image to the bounding rectangle of the contour
+
+    :param img: Image to be cropped
+    :type img: np.ndarray
+    :param contour: Contour to crop the image to
+    :type contour: np.ndarray
+    :return: Cropped image
+    :rtype: np.ndarray  
+    """
     x, y, w, h = cv.boundingRect(contour)
     cropped = img[y:y + h, x:x + w]
     return cropped
 
 
-def saturate_image(img: np.ndarray, saturation=2) -> np.ndarray:
+def saturate_image(img: np.ndarray, factor=2.0) -> np.ndarray:
+    """
+    Increases the saturation of the image by the specified factor
+
+    :param img: Image to be saturated
+    :type img: np.ndarray
+    :param factor: Factor to increase the saturation by
+    :type factor: float
+    :return: Saturated image
+    :rtype: np.ndarray
+    """
     img_hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV).astype("float32")
     (h, s, v) = cv.split(img_hsv)
-    s = s * saturation
+    s = s * factor
     s = np.clip(s, 0, 255)
     img_hsv = cv.merge([h, s, v])
 
@@ -20,58 +40,58 @@ def saturate_image(img: np.ndarray, saturation=2) -> np.ndarray:
 
 
 def rotate_image(img: np.ndarray, angle: float) -> np.ndarray:
+    """
+    Rotates the image by the specified angle
+
+    :param img: Image to be rotated
+    :type img: np.ndarray
+    :param angle: Angle to rotate the image by
+    :type angle: float
+    :return: Rotated image
+    :rtype: np.ndarray
+    """
     img_center = tuple(np.array(img.shape[1::-1]) / 2)
     rot_mat = cv.getRotationMatrix2D(img_center, angle, 1.0)
     result = cv.warpAffine(img, rot_mat, img.shape[1::-1], flags=cv.INTER_LINEAR)
     return result
 
 
-def create_tracker(tracker_type) -> cv.Tracker:
+def create_tracker(tracker_type: str) -> cv.Tracker:
+    """
+    Creates a tracker of the specified type
+
+    :param tracker_type: Type of the tracker
+    :type tracker_type: str
+    :return: Tracker of the specified type
+    :rtype: cv.Tracker
+    """
     trackers = {
-        "BOOSTING": cv.legacy.TrackerBoosting_create(),
-        "MIL": cv.legacy.TrackerMIL_create(),
-        "KCF": cv.legacy.TrackerKCF_create(),
-        "TLD": cv.legacy.TrackerTLD_create(),
-        "MEDIANFLOW": cv.legacy.TrackerMedianFlow_create(),
-        # "GOTURN": cv.legacy.TrackerGOTURN_create(),
-        "MOSSE": cv.legacy.TrackerMOSSE_create(),
-        "CSRT": cv.legacy.TrackerCSRT_create(),
+        "BOOSTING": cv.legacy.TrackerBoosting_create,
+        "MIL": cv.legacy.TrackerMIL_create,
+        "KCF": cv.legacy.TrackerKCF_create,
+        "TLD": cv.legacy.TrackerTLD_create,
+        "MEDIANFLOW": cv.legacy.TrackerMedianFlow_create,
+        "GOTURN": cv.legacy.TrackerGOTURN_create,
+        "MOSSE": cv.legacy.TrackerMOSSE_create,
+        "CSRT": cv.legacy.TrackerCSRT_create,
     }
 
-    if tracker_type == "BOOSTING":
-        return cv.TrackerBoosting_create()
-    if tracker_type == "MIL":
-        return cv.TrackerMIL_create()
-    if tracker_type == "KCF":
-        return cv.TrackerKCF_create()
-    if tracker_type == "TLD":
-        return cv.TrackerTLD_create()
-    if tracker_type == "MEDIANFLOW":
-        return cv.TrackerMedianFlow_create()
-    if tracker_type == "GOTURN":
-        return cv.TrackerGOTURN_create()
-    if tracker_type == "MOSSE":
-        return cv.TrackerMOSSE_create()
-    if tracker_type == "CSRT":
-        return cv.TrackerCSRT_create()
+    return trackers[tracker_type]() if tracker_type in trackers else None
 
 
-def dominant_colors(image: np.ndarray, n_clusters=3):
-    data = cv.resize(image, (100, 100)).reshape(-1, 3)
-    criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 10, 1.0)
-    flags = cv.KMEANS_RANDOM_CENTERS
-    compactness, labels, centers = cv.kmeans(data.astype(np.float32), n_clusters, None, criteria, 10, flags)
+def calculate_color_percentage(img: np.ndarray, lower_color: np.ndarray, upper_color: np.ndarray) -> float:
+    """
+    Calculates the percentage of pixels in the image that are in the specified color range
 
-    cluster_sizes = np.bincount(labels.flatten())
-
-    return centers, cluster_sizes
-
-
-def warp_contour(contour, M):
-    return cv.perspectiveTransform(contour.astype(np.float64), M).astype(np.int32)
-
-
-def calculate_color_percentage(img, lower_color, upper_color):
+    :param img: The image to be analyzed
+    :type img: np.ndarray
+    :param lower_color: Lower bound of the color range
+    :type lower_color: np.ndarray
+    :param upper_color: Upper bound of the color range
+    :type upper_color: np.ndarray
+    :return: Percentage of pixels in the image that are in the specified color range
+    :rtype: float
+    """
     # Convert the image to the HSV color space (Hue, Saturation, Value)
     hsv_image = cv.cvtColor(img, cv.COLOR_BGR2HSV)
 
@@ -86,44 +106,100 @@ def calculate_color_percentage(img, lower_color, upper_color):
     return percentage
 
 
-def resize_contour(contour, factor=0.25):
+def warp_contour(contour: np.ndarray, m: np.ndarray) -> np.ndarray:
+    """
+    Warps the contour with the transformation matrix m
+
+    :param contour: Contour to be warped
+    :type contour: np.ndarray
+    :param m: Transformation matrix
+    :type m: np.ndarray
+    :return: Warped contour
+    :rtype: np.ndarray
+    """
+    return cv.perspectiveTransform(contour.astype(np.float64), m).astype(np.int32)
+
+
+def resize_contour(contour: np.ndarray, factor=0.25):
+    """
+    Resizes the contour by a factor
+    :param contour:
+    :param factor:
+    :return:
+    """
     resized_contour = np.copy(contour)
     resized_contour[:, :, 0] = contour[:, :, 0] * factor
     resized_contour[:, :, 1] = contour[:, :, 1] * factor
     return resized_contour
 
-def get_clearings_and_buildings(clearing_mask):
 
-    def contours_reorg(contours):
-        swaps = [(0,3),
-                (0,2),
-                (1,3),
-                (5,6)]
-        for i,j in swaps:
-            contours[i],contours[j] = contours[j],contours[i]
-        contours.reverse()
-        contours[-4:] = contours[-4:][::-1]
-        return contours
-    
-    def get_children(i,contours,hierarchy):
+def safe_division(a: float, b: float) -> float:
+    """
+    Safely divides a by b, returns 0 if b is 0
 
-        _,_,child,_ = hierarchy[0][i]
-        children = []
-        while True:
-            if child == -1:
-                break
-            children.append(contours[child])
-            child, _, _, _ = hierarchy[0][child]
-        return children
-    
-    contours, hierarchy = cv.findContours(clearing_mask,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
-    filtered = [(i,cont) for i,cont in enumerate(contours) if hierarchy[0][i][3] == -1]
-    reorged = contours_reorg(filtered)
-    reorged_conts = []
+    :param a: Dividend
+    :type a: float
+    :param b: Divisor
+    :type b: float
+    :return: Result of a / b
+    :rtype: float
+    """
+    return a / b if b != 0 else 0
 
-    buildings = {}
-    for j,(i,cont) in enumerate(reorged):
-        buildings[j] = get_children(i,contours,hierarchy)
-        reorged_conts.append(cont)
 
-    return reorged_conts,buildings
+def reorganize_contours(contours: list[tuple[int, np.ndarray]], swap_list: list[tuple[int, int]]) \
+        -> list[tuple[int, np.ndarray]]:
+    """
+    Reorganizes the contours according to the swap list
+
+    :param contours: Contours to be reorganized
+    :type contours: list[tuple[int, np.ndarray]]
+    :param swap_list: List of tuples of indices to be swapped
+    :type swap_list: list[tuple[int, int]]
+    :return: Reorganized contours
+    :rtype: list[tuple[int, np.ndarray]]
+    """
+    c = deepcopy(contours)
+    for i, j in swap_list:
+        c[i], c[j] = c[j], c[i]
+    c.reverse()
+    c[-4:] = c[-4:][::-1]
+    return c
+
+
+def get_highest_hierarchy(hierarchy: np.ndarray) -> list[int]:
+    """
+    Returns the indices of the highest hierarchy contours (parentless)
+
+    :param hierarchy: Hierarchical representation of contours
+    :type hierarchy: np.ndarray
+    :return: Indices of the highest hierarchy contours
+    :rtype: list[int]
+    """
+    return [i for i, node in enumerate(hierarchy[0]) if node[3] == -1]
+
+
+def get_lowest_hierarchy(hierarchy: np.ndarray) -> list[int]:
+    """
+    Returns the indices and contours of the lowest hierarchy contours (childless)
+
+    :param hierarchy: Hierarchical representation of contours
+    :type hierarchy: np.ndarray
+    :return: Indices and contours of the lowest hierarchy contours
+    :rtype: list[int]
+    """
+    return [i for i, node in enumerate(hierarchy[0]) if node[2] == -1]
+
+
+def get_lowest_children(i: int, hierarchy: np.ndarray) -> list[int]:
+    """
+    Returns the indices of the children of the contour with index i that have no children themselves
+
+    :param i: Index of the contour
+    :type i: int
+    :param hierarchy: Hierarchical representation of contours
+    :type hierarchy: np.ndarray
+    :return: Indices of the children of the contour with index i
+    :rtype: list[int]
+    """
+    return [j for j, node in enumerate(hierarchy[0]) if node[3] == i and node[2] == -1]
