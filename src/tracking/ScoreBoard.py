@@ -1,62 +1,59 @@
 import numpy as np
 import cv2 as cv
+
 from src.tracking.StaticObject import StaticObject
+from src.tracking.Board import Board
 from src.detection.game import calculate_current_score
 from src.detection.elements import detect_score_board
-from src.utils import warp_contour
+from src.utils.contours import warp_contour
 
 
 class ScoreBoard(StaticObject):
-    def __init__(self, name,board, mask):
+    def __init__(self, name, board: Board, mask: np.ndarray):
         super().__init__(name)
         self.mask = mask
         self.board = board
         self.cell_contours = None
-        self.static_contours,score_ref = detect_score_board(self.board.ref, self.mask)
+        self.static_contours, score_ref = detect_score_board(self.board.ref, self.mask)
         score_x, score_y, _, _ = cv.boundingRect(score_ref)
         self.score_offset = [score_x, score_y]
 
         self.current_score = None
-        self.current_scores = []
+        self.scores = []
 
-    def redetect(self, frame,):
-        self.cell_contours = list(map(lambda c: warp_contour(c, self.board.M), [c + self.score_offset for c in self.static_contours]))
+    def re_detect(self, frame):
+        self.cell_contours = list(map(lambda c: warp_contour(c, self.board.m),
+                                      [c + self.score_offset for c in self.static_contours]))
 
-    def draw(self, frame, msg=None, color=(0, 122, 0)):
+    def draw(self, frame, color=(0, 122, 0)):
         if self.cell_contours is None:
             return frame
 
-        orange_score, blue_score = self.get_average_score()
         frame = cv.drawContours(frame, self.cell_contours, -1, color, 2)
-        frame = cv.drawContours(frame, [self.cell_contours[blue_score]], -1, StaticObject.BLUE_COLOR, 3)
-        frame = cv.drawContours(frame, [self.cell_contours[orange_score]], -1, StaticObject.ORANGE_COLOR, 3)
+        frame = cv.drawContours(frame, [self.cell_contours[self.current_score[1]]], -1, StaticObject.BLUE_COLOR, 3)
+        frame = cv.drawContours(frame, [self.cell_contours[self.current_score[0]]], -1, StaticObject.ORANGE_COLOR, 3)
         return frame
 
-    def detect_events(self, frame_num: int, frame: np.ndarray) -> np.ndarray:
+    def detect_events(self, frame: np.ndarray):
         self.event.update()
 
         new_score = calculate_current_score(frame, self.cell_contours,
                                             (StaticObject.LOWER_ORANGE, StaticObject.UPPER_ORANGE),
                                             (StaticObject.LOWER_DARK_BLUE, StaticObject.UPPER_DARK_BLUE))
 
-        self.current_scores.append(new_score)
+        self.scores.append(new_score)
 
-        if len(self.current_scores) > 30:
-            self.current_scores.pop(0)
+        if len(self.scores) > 30:
+            self.scores.pop(0)
 
-        average_score = self.get_average_score()
+        average_score = self._get_average_score()
 
         if self.current_score != average_score:
-            self.event.reset()
-            self.event.msg = (f"Score change Orange: {average_score[0]} "
-                              f"Blue: {average_score[1]}")
             self.current_score = average_score
+            self.event.msg = (f"Score - Orange: {average_score[0]} "
+                              f"Blue: {average_score[1]}")
+            self.event.reset()
 
-        msg = self.event.get()
-
-        frame = cv.putText(frame, self.event.get(), (0, 250), cv.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 0), 5, cv.LINE_AA)
-        return cv.putText(frame, self.event.get(), (0, 250), cv.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 3, cv.LINE_AA)
-
-    def get_average_score(self):
-        return (np.mean([score[0] for score in self.current_scores], axis=0, dtype=int),
-                np.mean([score[1] for score in self.current_scores], axis=0, dtype=int))
+    def _get_average_score(self):
+        return (np.mean([score[0] for score in self.scores], axis=0, dtype=int),
+                np.mean([score[1] for score in self.scores], axis=0, dtype=int))

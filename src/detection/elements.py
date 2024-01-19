@@ -1,215 +1,244 @@
 import cv2 as cv
 import numpy as np
 
-from src.utils import crop_contour
-from src.viz.images import imshow
+from src.utils.images import crop_image
+from src.utils.helpers import get_highest_hierarchy, get_children, safe_division
+from src.utils.contours import reorder_contours
 
-from typing import Dict
 
+def detect_dice_tray(img: np.ndarray, thresh=50, draw_contours=False) \
+        -> tuple[np.ndarray, np.ndarray | None, np.ndarray | None, np.ndarray | None]:
+    """
+    Detects the dice tray and the dice inside it
+    This function utilizes the fact that dice tray is all black and dice are white
 
-def detect_dice_tray(img: np.ndarray, thresh=50,draw_contours=True) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """ this function uses the fact that the dice tray is all black """
+    :param img: Image to detect the dice tray and dice in
+    :type img: np.ndarray
+    :param thresh: Threshold for the dice tray detection
+    :type thresh: int
+    :param draw_contours: Whether to draw the contours over the image, defaults to False
+    :return: Dice tray contour, dice 1 contour, dice 2 contour, image with contours drawn (if draw_contours is True).
+        Dice contours are None if not found
+    :rtype: tuple[np.ndarray, np.ndarray | None, np.ndarray | None, np.ndarray | None]
+    """
+    # convert to grayscale
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
     filtered = cv.bilateralFilter(gray, 9, 250, 250)
 
-    # define thesholds
-    # edges = cv.Canny(filtered, 50, 60)
+    # define thresholds
     _, edges = cv.threshold(filtered, thresh, 255, cv.THRESH_BINARY)
     edges = 255 - edges
-    # edges = cv.morphologyEx(edges, cv.MORPH_DILATE, np.ones((2,2)))
 
+    # find contours
     contours, hierarchy = cv.findContours(edges, cv.RETR_TREE, 2)
-    # detect dice tray
-    i, largest_contour = max(enumerate(contours), key=lambda i_c: cv.contourArea(i_c[1]))
+
+    # detect dice tray, take the largest contour
+    tray_idx, tray = max(enumerate(contours), key=lambda i_c: cv.contourArea(i_c[1]))
+
+    # detect dice, take the two smallest contours
+    tray_children = get_children(tray_idx, hierarchy)
+    tray_children_mapped = map(lambda i: cv.boundingRect(contours[i]), tray_children)
+    tray_children_sorted = sorted(zip(tray_children, tray_children_mapped),
+                                  key=lambda bound: -bound[1][2] * bound[1][3])
+
+    dice1, dice2 = None, None
+
+    if len(tray_children_sorted) >= 2:
+        dice1, dice2 = contours[tray_children_sorted[0][0]], contours[tray_children_sorted[1][0]]
 
     if draw_contours:
-    # draw contours over image
         img_contours = np.copy(img)
-        cv.drawContours(img_contours, contours, -1, (0, 255, 0), 2)
-        cv.drawContours(img_contours, [largest_contour], -1, (0, 0, 255), 2)
+        if dice1 is not None and dice2 is not None:
+            cv.drawContours(img_contours, [dice1, dice2], -1, (0, 255, 0), 2)
+        cv.drawContours(img_contours, [tray], -1, (0, 0, 255), 2)
 
-    tray_children = []
-    _, _, child, _ = hierarchy[0][i]
-    j = child
-
-    while True:
-        _next, _, _, _ = hierarchy[0][j]
-        tray_children.append(j)
-        j = _next
-        if _next == -1:
-            break
-
-    children_mapped = map(lambda i: cv.boundingRect(contours[i]), tray_children)
-    children_sorted = sorted(zip(tray_children, children_mapped), key=lambda bound: -bound[1][2] * bound[1][3])
-
-    dice1,dice2 = None,None
-
-    if len(children_sorted) >= 2:
-        dice1,dice2 = contours[children_sorted[0][0]], contours[children_sorted[1][0]]
-
-    if draw_contours:
-        return largest_contour, dice1,dice2, img_contours
+        return tray, dice1, dice2, img_contours
     else:
-        return largest_contour, dice1, dice2
+        return tray, dice1, dice2, None
 
 
-def descriptor_detect(img: np.ndarray, board_ref: np.ndarray, distance=0.25, draw_matches=True):
+def detect_from_reference(img: np.ndarray, ref: np.ndarray, distance=0.25, draw_matches=False) \
+        -> tuple[np.ndarray | None, np.ndarray | None, np.ndarray | None]:
+    """
+    Detects the reference object using descriptors
+
+    :param img: Image to detect the reference object in
+    :type img: np.ndarray
+    :param ref: Reference object image
+    :type ref: np.ndarray
+    :param distance: Distance threshold for the matches
+    :type distance: float
+    :param draw_matches: Whether to draw the matches over the image, defaults to False
+    :type draw_matches: bool
+    :return: Homography matrix, contour of the reference object, image with matches drawn (if draw_matches is True).
+        Matrix and contour are None if not found
+    :rtype: tuple[np.ndarray | None, np.ndarray | None, np.ndarray | None]
+    """
+    # convert to grayscale
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-    board_gray = cv.cvtColor(board_ref, cv.COLOR_BGR2GRAY)
+    ref_gray = cv.cvtColor(ref, cv.COLOR_BGR2GRAY)
 
+    # detect key points and descriptors
     sift = cv.SIFT_create()
-
     kp, desc = sift.detectAndCompute(gray, None)
-    kp2, desc2 = sift.detectAndCompute(board_gray, None)
+    kp2, desc2 = sift.detectAndCompute(ref_gray, None)
 
+    # match descriptors and filter them by distance
     matcher = cv.FlannBasedMatcher()
     matches = matcher.match(desc2, desc)
+    max_distance = max(matches, key=lambda x: x.distance).distance
+    matches = list(filter(lambda x: x.distance < distance * max_distance, matches))
 
-    good_matches = sorted(matches, key=lambda x: x.distance)
-    _max = max(matches, key=lambda x: x.distance).distance
-    good_matches = [m for m in matches if m.distance < distance * _max]
+    # if no matches found, return
+    if len(matches) == 0:
+        return None, None, None
 
-    if len(good_matches) == 0:
-        return None
+    # find homography matrix
+    src_pts = np.float32([kp2[m.queryIdx].pt for m in matches]).reshape(-1, 1, 2)
+    dst_pts = np.float32([kp[m.trainIdx].pt for m in matches]).reshape(-1, 1, 2)
+    m, mask = cv.findHomography(src_pts, dst_pts, cv.RANSAC, 5.0)
 
-    src_pts = np.float32([kp2[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
-    dst_pts = np.float32([kp[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
-    M, mask = cv.findHomography(src_pts, dst_pts, cv.RANSAC, 5.0)
-
-    draw_params = dict(matchColor=(255, 0, 0),  # draw matches in green color
-                       singlePointColor=None,
-                       matchesMask=mask.ravel().tolist(),  # draw only inliers
-                       flags=2 | 4
-                       )
-
-    if draw_matches:
-        drawn_matches = cv.drawMatches(board_ref, kp2, img, kp, good_matches, None, **draw_params)
-
-    warped_board = cv.warpPerspective(board_gray, M, (img.shape[1], img.shape[0]))
-
-    _, edges2 = cv.threshold(warped_board, 50, 255, cv.THRESH_BINARY)
-    edges2 = cv.morphologyEx(edges2, cv.MORPH_CLOSE, kernel=np.ones((7, 7)))
-
-    contours, _ = cv.findContours(edges2, cv.RETR_TREE, 2)
-    # i,largest_contour = max(enumerate(contours), key=lambda i_c:cv.contourArea(i_c[1]))
+    # find contour of the reference object
+    ref_gray = cv.warpPerspective(ref_gray, m, (img.shape[1], img.shape[0]))
+    _, ref_gray = cv.threshold(ref_gray, 50, 255, cv.THRESH_BINARY)
+    ref_gray = cv.morphologyEx(ref_gray, cv.MORPH_CLOSE, kernel=np.ones((7, 7)))
+    contours, _ = cv.findContours(ref_gray, cv.RETR_TREE, 2)
+    obj_contour = contours[0]
 
     if draw_matches:
-        return M, drawn_matches, contours[0]
+        draw_params = dict(matchColor=(255, 0, 0),  # draw matches in green color
+                           singlePointColor=None,
+                           matchesMask=mask.ravel().tolist(),  # draw only inliers
+                           flags=2 | 4,
+                           )
+        img_matches = cv.drawMatches(ref, kp2, img, kp, matches, None, **draw_params)
+        return m, obj_contour, img_matches
     else:
-        return M, contours[0]
+        return m, obj_contour, None
 
 
-def detect_score_board(img,
-                       mask,
-                       thresh_arg=(55, 15),
-                       hor_ker=np.ones((1, 40)),
-                       ver_ker=np.ones((30, 1)),
-                       hor_ver_ker=np.ones((7, 7))):
+def detect_score_board(img: np.ndarray, mask: np.ndarray, thresh_args=(55, 15), hor_ker=np.ones((1, 40)),
+                       ver_ker=np.ones((30, 1)), hor_ver_ker=np.ones((7, 7))) -> tuple[list[np.ndarray], np.ndarray]:
+    """
+    Detects the score board and the cells inside it using a mask
+
+    :param img: Image to detect the score board and cells in
+    :type img: np.ndarray
+    :param mask: Mask of the score board
+    :type mask: np.ndarray
+    :param thresh_args: Arguments for the adaptive thresholding (block size, constant), defaults to (55, 15)
+    :type thresh_args: tuple[int, int]
+    :param hor_ker: Horizontal kernel for the morphological operations, defaults to np.ones((1, 40))
+    :type hor_ker: np.ndarray
+    :param ver_ker: Vertical kernel for the morphological operations, defaults to np.ones((30, 1))
+    :type ver_ker: np.ndarray
+    :param hor_ver_ker: Horizontal and vertical kernel for the morphological operations, defaults to np.ones((7, 7))
+    :type hor_ver_ker: np.ndarray
+    :return: List of cell contours, score board contour
+    :rtype: tuple[list[np.ndarray], np.ndarray]
+    """
+    # Find the score board contour and crop the image to it
     mask_cont = cv.findContours(mask, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)[0][0]
-    cropped = crop_contour(img, mask_cont)
+    cropped = crop_image(img, mask_cont)
     img_gray = cv.cvtColor(cropped, cv.COLOR_BGR2GRAY)
 
+    # Adaptive thresholding
     threshold = cv.adaptiveThreshold(
         img_gray,
         255,
         cv.ADAPTIVE_THRESH_GAUSSIAN_C,
         cv.THRESH_BINARY,
-        *thresh_arg
+        *thresh_args
     )
 
+    # Morphological operations
     hor = 255 - cv.erode(cv.dilate(threshold, hor_ker), hor_ker)
     ver = 255 - cv.erode(cv.dilate(threshold, ver_ker), ver_ker)
     hor_ver = cv.morphologyEx(hor + ver, cv.MORPH_CLOSE, hor_ver_ker)
 
+    # Find contours of the cells and the score board
     contours, hierarchy = cv.findContours(hor_ver, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-    i, _ = max(enumerate(contours), key=lambda i_c: cv.contourArea(i_c[1]))
-
-    cells = []
-    _, _, child, _ = hierarchy[0][i]
-    j = child
-
-    while True:
-        _next, _, _, _ = hierarchy[0][j]
-        cells.append(j)
-        j = _next
-        if _next == -1:
-            break
+    score_board_idx, _ = max(enumerate(contours), key=lambda i_c: cv.contourArea(i_c[1]))
+    cells = get_children(score_board_idx, hierarchy)
 
     return [contours[i] for i in cells[::-1]], mask_cont
 
 
-def detect_buildings(mask):
+def detect_clearings_and_buildings(mask: np.ndarray) \
+        -> tuple[list[np.ndarray], dict[int, list[np.ndarray]]]:
+    """
+    Detects the clearings and buildings from the clearing mask 
+    
+    :param mask: Mask of the clearings
+    :type mask: np.ndarray 
+    :return: List of clearing contours, dictionary of building contours for each clearing
+    :rtype: tuple[list[np.ndarray], dict[int, list[np.ndarray]]]
+    """
+    # Find contours of the clearings and buildings
     contours, hierarchy = cv.findContours(mask, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-    buildings = [cont for cont_idx, cont in enumerate(contours) if
-                 hierarchy[0][cont_idx][2] == -1]  # childless contours
-    return buildings
+
+    # Get the highest hierarchy contours (parentless) as clearings and reorganize them
+    clearings = [(cont_idx, contours[cont_idx]) for cont_idx in get_highest_hierarchy(hierarchy)]
+    clearings = reorder_contours(clearings, [(0, 3), (0, 2), (1, 3), (5, 6)])
+
+    # Get the lowest hierarchy contours (childless) for each clearing as buildings
+    buildings = {i: [contours[j] for j in get_children(c_idx, hierarchy)]
+                 for i, (c_idx, _) in enumerate(clearings)}
+    clearings = [cont for _, cont in clearings]
+
+    return clearings, buildings
 
 
-def detect_clearing(mask):
-    contours, hierarchy = cv.findContours(mask, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-    clearings = [cont for cont_idx, cont in enumerate(contours) if
-                 hierarchy[0][cont_idx][3] == -1]  # parentless contours
-    return clearings
+def detect_pawns(img: np.ndarray, mask: np.ndarray, clearings: list[np.ndarray],
+                 orange: tuple[np.ndarray, np.ndarray], blue: tuple[np.ndarray, np.ndarray],
+                 diff_sensitivity=0.5, area_sensitivity=0.3) \
+        -> tuple[dict[int, list[np.ndarray]], dict[int, list[np.ndarray]]]:
+    """
+    Detects the pawns from the clearing mask
 
+    :param img: Image to detect the pawns in
+    :type img: np.ndarray
+    :param mask: Mask of the clearings
+    :type mask: np.ndarray
+    :param clearings: Clearing contours
+    :type clearings: list[np.ndarray]
+    :param orange: Color range of the orange team
+    :type orange: tuple[np.ndarray, np.ndarray]
+    :param blue: Color range of the blue team
+    :type blue: tuple[np.ndarray, np.ndarray]
+    :param diff_sensitivity: Sensitivity of the difference between areas of the next sorted contours, defaults to 0.5
+    :type diff_sensitivity: float, optional
+    :param area_sensitivity: Sensitivity of the area of the contour to the biggest contour, defaults to 0.3
+    :type area_sensitivity: float, optional
+    :return: Dictionary of orange pawns for each clearing, dictionary of blue pawns for each clearing
+    :rtype: tuple[dict[int, list[np.ndarray]], dict[int, list[np.ndarray]]]
+    """
+    hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
+    hsv = cv.bitwise_and(hsv, hsv, mask=mask)
+    pawns: list[dict[int, list[np.ndarray]]] = []
 
-def _safe_div(a, b):
-    return a / b if b != 0 else 0
-
-
-def detect_pawns(frame, clearings,warped_mask, pawn_colors: Dict[str, tuple], diff_sensivity=0.4, area_sensivity=0.3,with_ids=True,verbose=False):
-    ''' this function gets the warped clearing mask and returns estimated pawns for each clearing'''
-
-    #clearings = detect_clearing(clearing_mask)
-    pawns = dict([(player, []) for player in pawn_colors.keys()])
-    total_pawns = dict([(player, 0) for player in pawn_colors.keys()])
-
-    hsv_frame = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
-    clearing_mask_2 = cv.resize(warped_mask, (hsv_frame.shape[1], hsv_frame.shape[0]))
-    hsv_frame = cv.bitwise_and(hsv_frame, hsv_frame, mask=warped_mask)
-    masks = {}
-    biggest_area = {}
-    for player, color_range in pawn_colors.items():
-        color_mask = cv.inRange(hsv_frame, *color_range)
+    for color_range in (orange, blue):
+        pawns.append({})
+        color_mask = cv.inRange(hsv, *color_range)
         color_mask = cv.erode(color_mask, np.ones((5, 5)))
-        masks[player] = color_mask
         contours, _ = cv.findContours(color_mask, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-        biggest_area[player] = np.max(tuple(map(lambda c: cv.contourArea(c), contours)))
+        biggest_area = np.max(tuple(map(lambda c: cv.contourArea(c), contours)))
 
-
-    for k, cont in enumerate(clearings):
-        if verbose: 
-            _,_,w,h = cv.boundingRect(cont)
-            image_to_show = np.zeros((h,w,3))
-
-        for player, _ in pawn_colors.items():
-            img = crop_contour(masks[player], cont)
-            contours, _ = cv.findContours(img, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-            # pawns[player] = (i,len(contours))
-            
-            if verbose:
-                bgr = 0 if player == "blue" else 2
-                image_to_show[:,:,bgr] = img
-
-            areas = tuple(reversed(sorted(map(lambda c: cv.contourArea(c), contours))))
-            diffs = [_safe_div((areas[i] - areas[i + 1]), areas[i]) for i in range(len(areas) - 1)]
-            j = 0
+        for c_idx, c_cont in enumerate(clearings):
+            pawns[-1][c_idx] = []
+            clearing = crop_image(color_mask, c_cont)
+            contours, _ = cv.findContours(clearing, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+            areas = list(sorted(map(lambda c: (c, cv.contourArea(c)), contours), reverse=True, key=lambda x: x[1]))
+            diffs = [safe_division((areas[i][1] - areas[i + 1][1]), areas[i][1]) for i in range(len(areas) - 1)]
+            if len(diffs) == 0 and len(areas) > 0:
+                diffs.append(1)
             for i in range(len(diffs)):
-                # print(_safe_div(areas[i],biggest_area[player]))
-                if _safe_div(areas[i], biggest_area[player]) < area_sensivity:
-                    j = i
+                if safe_division(areas[i][1], biggest_area) < area_sensitivity:
                     break
 
-                if diffs[i] > diff_sensivity:
-                    j = i + 1
+                pawns[-1][c_idx].append(areas[i][0])
+
+                if diffs[i] > diff_sensitivity:
                     break
-            if verbose: print((f"Clearing {k}: {j} {player} pawns"))
-            total_pawns[player] += j
-            if with_ids:
-                pawns[player].append((k, j))
-            else:
-                pawns[player].append(j)
 
-        if verbose: 
-            imshow(image_to_show)
-
-    return pawns,total_pawns
+    return pawns[0], pawns[1]

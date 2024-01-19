@@ -3,18 +3,18 @@ import cv2 as cv
 
 from src.tracking.StaticObject import StaticObject
 from src.tracking.TrackedObject import TrackedObject
-from src.detection.elements import descriptor_detect
+from src.detection.elements import detect_from_reference
 from src.viz.images import draw_bbox
 
 
 class Card(TrackedObject):
 
-    def __init__(self, name, tracker_type, card_pile, distance=.5, velocity_sensivity=10):
-        super().__init__(name, tracker_type, velocity_sensivity)
+    def __init__(self, name, tracker_type, card_pile, distance=.5, velocity_sensitivity=10):
+        super().__init__(name, tracker_type, velocity_sensitivity)
         self.distance = distance
         self.card_pile = card_pile
 
-    def detect_events(self, frame_num: int, frame: np.ndarray) -> np.ndarray:
+    def detect_events(self, frame: np.ndarray):
         self.event.update()
 
         if self.is_moving():
@@ -23,22 +23,14 @@ class Card(TrackedObject):
             self.event.msg = f"Card drawn by {player}"
             self.event.reset()
 
-        frame = cv.putText(frame, self.event.get(), (0, 50), cv.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 0), 5, cv.LINE_AA)
-        return cv.putText(frame, self.event.get(), (0, 50), cv.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 3, cv.LINE_AA)
+    def re_detect(self, frame):
+        self.init_tracker(frame, self.card_pile.contour)
+        self.last_bbox = cv.boundingRect(self.card_pile.contour)
 
-    def redetect(self, frame):
-        # running descriptor tracking is very expensive, so we should just run tracking from the card piles contour
-
-        # output = descriptor_detect(frame, self.ref, distance=self.distance, draw_matches=False)
-        # if output is None:
-        #     return
-        # _, self.contour = output
-        # self.init_tracker(frame, self.contour)
-        self.init_tracker(frame,self.card_pile.contour)
-
-    def check_if_lost(self, bbox):
-        x, y, w, h = cv.boundingRect(self.contour)
+    def update_timer(self, bbox):
+        x, y, w, h = cv.boundingRect(self.card_pile.contour)
         px, py, pw, ph = bbox
+
         if np.linalg.norm(np.subtract([x, y], [px, py])) > w:
             self.timer += 1
         else:
@@ -50,22 +42,15 @@ class CardPile(StaticObject):
         super().__init__(name)
         self.ref = ref
         self.distance = distance
-        self.M = None
         self.contour = None
 
-    def detect_events(self, frame_num: int, frame: np.ndarray) -> np.ndarray:
-        return frame
+    def re_detect(self, frame):
+        _, contour, _ = detect_from_reference(frame, self.ref, distance=self.distance, draw_matches=False)
 
-    def redetect(self, frame,):
-        output = descriptor_detect(frame, self.ref, distance=self.distance, draw_matches=False)
-        if output is None:
-            return None
-        _, self.contour = output
+        if contour is None:
+            return
+
+        self.contour = contour
 
     def draw(self, frame, msg=None, color=(0, 255, 0)):
-        if msg is None:
-            msg = self.name
-        x, y, w, h = cv.boundingRect(self.contour)
-        draw_bbox(frame, (x, y, w, h), color)
-        return cv.putText(frame, msg, (x, y - 2), cv.FONT_HERSHEY_SIMPLEX, 1.5, color,
-                          3, cv.LINE_AA)
+        return cv.drawContours(frame, [self.contour], -1, color, 2)

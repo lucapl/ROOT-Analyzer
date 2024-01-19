@@ -161,4 +161,4 @@ cython_debug/
 
 *.code-workspace
 
-ignore/
+results/
