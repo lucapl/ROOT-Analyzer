@@ -5,7 +5,7 @@ import PIL.Image
 import numpy as np
 from IPython.display import display
 
-from src.tracking import Event
+from src.tracking.Event import Event
 
 
 def imshow(img: np.ndarray):

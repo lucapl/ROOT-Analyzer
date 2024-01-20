@@ -2,6 +2,7 @@ import cv2 as cv
 import numpy as np
 from tqdm import tqdm
 import subprocess
+import os
 
 from src.utils.data import get_pdf_page
 from src.tracking import TrackedObject, StaticObject, Board, Buildings, Card, CardPile, Dice, DiceTray, ScoreBoard, \
@@ -116,5 +117,8 @@ def convert_to_mp4(diff: str, idx: int) -> None:
 if __name__ == "__main__":
     for difficulty in DIFFICULTIES:
         for i in range(3):
+            if os.path.exists(f"{UPLOAD_DIR}/{difficulty}_{get_clip_name(i)}.mp4"):
+                continue
+
             make_clip(difficulty, i)
             convert_to_mp4(difficulty, i)
